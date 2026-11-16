@@ -1709,3 +1709,94 @@ footer p{
   right: 12px;
 }
 
+#header_socia
+{
+    position: relative;
+    top: auto;
+    left: auto;
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+    width: fit-content;
+    max-width: 100%;
+    height: auto;
+    margin: 24px 0 32px;
+    padding: 10px;
+    transform: none;
+    border: 1px solid rgba(0, 167, 142, 0.22);
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.88);
+    box-shadow: 0 8px 24px rgba(0, 74, 64, 0.14);
+}
+#header_socia a
+{
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 42px;
+    height: 42px;
+    margin: 0;
+    padding: 0;
+    border-radius: 50%;
+    background: rgba(0, 167, 142, 0.08);
+    font-size: 19px;
+    text-align: center;
+    text-decoration: none;
+    transition: color 0.2s ease, background-color 0.2s ease, transform 0.2s ease;
+}
+#header_socia .social-facebook
+{
+    color: #1877f2;
+}
+#header_socia .social-youtube
+{
+    color: #c4302b;
+}
+#header_socia .social-github
+{
+    color: #24292f;
+}
+#header_socia .social-twitter
+{
+    color: #1d9bf0;
+}
+#header_socia .social-instagram
+{
+    color: #c13584;
+}
+#header_socia .social-linkedin
+{
+    color: #0a66c2;
+}
+#header_socia .social-telegram
+{
+    color: #229ed9;
+}
+#header_socia .social-tiktok
+{
+    color: #111;
+}
+#header_socia a:hover,
+#header_socia a:focus-visible
+{
+    color: #fff;
+    background: var(--main-color);
+    box-shadow: 0 5px 12px rgba(0, 167, 142, 0.3);
+    outline: none;
+    transform: translateY(-3px);
+}
+#header_socia a:focus-visible
+{
+    outline: 3px solid rgba(0, 167, 142, 0.35);
+    outline-offset: 3px;
+}
+@media (max-width: 767px)
+{
+    #header_socia
+    {
+        justify-content: center;
+        margin: 24px auto 32px;
+    }
+}
+
