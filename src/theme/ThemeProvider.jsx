@@ -1,9 +1,11 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from 'react'
+import { ThemeContext } from './ThemeContext.js'
 
 const THEME_STORAGE_KEY = 'theme'
 const THEMES = ['light', 'dark', 'system']
-
-const ThemeContext = createContext(null)
+const subscribeToMount = () => () => {}
+const getClientMountedSnapshot = () => true
+const getServerMountedSnapshot = () => false
 
 function isTheme(value) {
   return THEMES.includes(value)
@@ -34,7 +36,11 @@ function saveTheme(theme) {
 export function ThemeProvider({ children }) {
   const [theme, setThemeState] = useState(readStoredTheme)
   const [systemTheme, setSystemTheme] = useState(getSystemTheme)
-  const [mounted, setMounted] = useState(false)
+  const mounted = useSyncExternalStore(
+    subscribeToMount,
+    getClientMountedSnapshot,
+    getServerMountedSnapshot,
+  )
   const resolvedTheme = theme === 'system' ? systemTheme : theme
 
   const setTheme = useCallback((nextTheme) => {
@@ -48,7 +54,6 @@ export function ThemeProvider({ children }) {
     }
 
     if (mediaQuery) {
-      updateSystemTheme(mediaQuery)
       if (mediaQuery.addEventListener) {
         mediaQuery.addEventListener('change', updateSystemTheme)
       } else {
@@ -62,7 +67,6 @@ export function ThemeProvider({ children }) {
     }
 
     window.addEventListener('storage', syncThemeFromStorage)
-    setMounted(true)
 
     return () => {
       if (mediaQuery?.removeEventListener) {
@@ -96,10 +100,4 @@ export function ThemeProvider({ children }) {
   )
 
   return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>
-}
-
-export function useTheme() {
-  const context = useContext(ThemeContext)
-  if (!context) throw new Error('useTheme must be used within a ThemeProvider')
-  return context
 }

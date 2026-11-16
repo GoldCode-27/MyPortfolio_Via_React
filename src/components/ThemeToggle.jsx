@@ -1,5 +1,5 @@
 import { useRef } from 'react'
-import { useTheme } from '../theme/ThemeContext.jsx'
+import { useTheme } from '../theme/useTheme.js'
 
 const options = [
   { value: 'light', label: 'Light', icon: 'fas fa-sun' },

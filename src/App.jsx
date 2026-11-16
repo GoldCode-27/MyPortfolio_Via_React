@@ -12,10 +12,12 @@ const navItems = [
 ]
 
 const skills = [
-  { title: 'UI/UX Design', value: 90, progress: '90%' },
-  { title: 'Web Design', value: 95, progress: '95%' },
-  { title: 'HTML/CSS', value: 90, progress: '80%' },
-  { title: 'Android', value: 70, progress: '70%' },
+  { title: 'React', value: 85 },
+  { title: 'Node.js (Express)', value: 90 },
+  { title: 'MySQL', value: 75 },
+  { title: 'MongoDB', value: 70 },
+  { title: 'Git', value: 80 },
+  { title: 'GitHub Workflow', value: 85 },
 ]
 
 const githubRepositoriesUrl = 'https://github.com/GoldCode-27?tab=repositories'
@@ -337,8 +339,8 @@ function App() {
                       <div className="bar-inner">
                         <div
                           className="bar progress-line"
-                          data-progress={s.progress}
-                          style={{ width: skillsAnimated ? s.progress : '0%' }}
+                          data-progress={`${s.value}%`}
+                          style={{ width: skillsAnimated ? `${s.value}%` : '0%' }}
                         ></div>
                       </div>
                     </div>

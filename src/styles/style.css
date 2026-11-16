@@ -17,8 +17,9 @@ html
     --text-strong: #17212f;
     --text-muted: #475569;
     --border: #cbd5e1;
-    --primary: #007f6b;
-    --primary-contrast: #fff;
+    --primary: #00a78e;
+    --primary-strong: #007f6b;
+    --primary-contrast: #002b24;
     --shadow: 0 5px 15px rgba(15, 23, 42, 0.12);
     --main-color: var(--primary);
     --shadow-black-100: var(--shadow);
@@ -39,6 +40,7 @@ html
     --text-muted: #cbd5e1;
     --border: #334155;
     --primary: #2dd4bf;
+    --primary-strong: #5eead4;
     --primary-contrast: #042f2e;
     --shadow: 0 8px 24px rgba(0, 0, 0, 0.34);
 }
@@ -55,11 +57,11 @@ html.theme-ready body *
     transition-duration: 180ms;
     transition-timing-function: ease;
 }
-html.theme-ready .navbar,
-html.theme-ready .service-item-inner,
-html.theme-ready .pricing-plan,
-html.theme-ready .contact-item-inner,
-html.theme-ready .header-social a
+html.theme-ready body .navbar,
+html.theme-ready body .service-item-inner,
+html.theme-ready body .pricing-plan,
+html.theme-ready body .contact-item-inner,
+html.theme-ready body .header-social a
 {
     transition-property: background-color, color, border-color, transform;
 }
@@ -133,7 +135,7 @@ img
 }
 .btn-1
 {
-    background-color: var(--main-color);
+    background-color: var(--primary);
     padding: 15px 40px;
     border: none;
     color: var(--primary-contrast);
@@ -154,7 +156,7 @@ img
     background-color: var(--white);
     padding: 15px 40px;
     border: none;
-    color: var(--main-color);
+    color: var(--primary-strong);
     border-radius: 5px;
     font-size: 16px;
     text-transform: capitalize;
@@ -187,7 +189,7 @@ img
 {
     font-size: 20px;
     font-weight: 600;
-    color: var(--main-color);
+    color: var(--primary-strong);
   box-shadow: 0px 4px 25px rgb(21, 196, 172);
   border-radius: 20px;
   margin-left: 44%;
@@ -199,7 +201,7 @@ img
 {
     font-size: 20px;
     font-weight: 600;
-    color: var(--main-color);
+    color: var(--primary-strong);
   box-shadow: 0px 4px 25px rgb(21, 196, 172);
   border-radius: 20px;
   margin-left: 43%;
@@ -314,7 +316,7 @@ img
 }
 .navbar .logo a span
 {
-    color: var(--main-color);
+    color: var(--primary-strong);
 }
 .navbar .menu .nav-item
 {
@@ -401,7 +403,7 @@ img
 }
 .navbar.sticky .menu-btn
 {
-    color: var(--main-color);
+    color: var(--primary-strong);
     background-color: var(--surface);
 }
 .theme-toggle-wrap
@@ -481,7 +483,7 @@ img
     left: 1%;
     transform: translateY(-53%);
     border: 2px solid rgba(22, 148, 129, 0.21);
-    background-color:rgb(211, 200, 193);
+    background-color: var(--surface);
     border-radius: 20px;
     width: 400px;
     height: auto;
@@ -520,7 +522,7 @@ img
     position: relative;
     left: 130px;
     top: -75px;
-    color: var(--primary);
+    color: var(--primary-strong);
     font-size: 35px;
     font-weight: 600;
     animation: words 20s infinite;
@@ -573,7 +575,7 @@ img
 
 .header-social a:hover
 {
-    color: var(--main-color);
+    color: var(--primary-contrast);
     
     background-color: #b1a2a2;
     outline: 1px solid rgb(104, 41, 41);
@@ -594,7 +596,7 @@ img
     font-size: 38px;
     font-weight: 600;
     letter-spacing: 4px;
-    color: var(--main-color);
+    color: var(--primary-strong);
 }
 .home-section .home-text h1
 {
@@ -839,7 +841,7 @@ padding: 5px;
 .service-section .service-item-inner:hover .icon
 {
     background-color: var(--white);
-    color: var(--main-color);
+    color: var(--primary-strong);
     font-size: 24px;
 }
 .service-section .service-item-inner .icon i
@@ -899,7 +901,7 @@ padding: 5px;
     border-radius: 5px;
     background-color: var(--white);
     margin-right: 20px;
-    color: var(--main-color);
+    color: var(--primary-strong);
     margin-bottom: 20px;
     transition: all 0.3s ease;
 }
@@ -1073,7 +1075,7 @@ padding: 5px;
 .portfolio .project-type
 {
     margin-bottom: 8px;
-    color: var(--primary);
+    color: var(--primary-strong);
     font-size: 12px;
     font-weight: 700;
     text-transform: uppercase;
@@ -1102,11 +1104,11 @@ padding: 5px;
 .portfolio .project-status i
 {
     margin-right: 5px;
-    color: var(--main-color);
+    color: var(--primary-strong);
 }
 .portfolio .project-source-link
 {
-    color: var(--primary);
+    color: var(--primary-strong);
     font-weight: 700;
 }
 .portfolio .project-source-link:hover
@@ -1185,7 +1187,7 @@ padding: 5px;
 {
     font-size: 80px;
     font-weight: 700;
-    color: var(--main-color);
+    color: var(--primary-strong);
 }
 .pricing-plan .pricing-price .period
 {
@@ -1217,7 +1219,7 @@ padding: 5px;
 }
 .pricing-plan .pricing-body ul li i
 {
-    color: var(--main-color);
+    color: var(--primary-strong);
     position: absolute;
     left: 0;
     top: 12px;
@@ -1262,7 +1264,7 @@ padding: 5px;
 .contact-section .contact-item-inner i
 {
     font-size: 25px;
-    color: var(--main-color);
+    color: var(--primary-strong);
 
 }
 
@@ -1365,7 +1367,7 @@ footer p{
         left: -100%;
         top: 80px;
         flex-direction: column;
-        background-color: var(--main-color);
+        background-color: var(--surface);
         width: 100%;
         text-align: center;
         transition: all 0.5s ease;
@@ -1937,6 +1939,42 @@ footer p{
         justify-content: center;
         margin: 24px auto 32px;
     }
+    .navbar .theme-toggle-option span
+    {
+        display: none;
+    }
+    .navbar .theme-toggle-option
+    {
+        width: 34px;
+        padding: 6px;
+    }
+    .admin-page > div > header:first-child
+    {
+        flex-wrap: wrap;
+        gap: 12px;
+    }
+    .admin-page > div > header:first-child > div:first-child,
+    .admin-page > div > header:first-child > div:last-child
+    {
+        width: 100%;
+    }
+    .admin-page > div > header:first-child > div:last-child
+    {
+        justify-content: space-between;
+    }
+    .admin-page .theme-toggle-option span
+    {
+        display: none;
+    }
+    .admin-page .theme-toggle-option
+    {
+        width: 34px;
+        padding: 6px;
+    }
+    .admin-page .admin-chat-list-items
+    {
+        max-height: 34vh;
+    }
 }
 
 .admin-page
@@ -1953,6 +1991,7 @@ footer p{
 [data-theme="light"] .admin-page [class*="bg-[#151921]"],
 [data-theme="light"] .admin-page [class*="bg-[#121722]"],
 [data-theme="light"] .admin-page [class*="bg-[#11151f]"],
+[data-theme="light"] .admin-page [class*="bg-[#22272E]"],
 [data-theme="light"] .admin-page [class*="bg-slate-900"],
 [data-theme="light"] .admin-page [class*="bg-slate-800"]
 {
@@ -1976,7 +2015,38 @@ footer p{
 [data-theme="light"] .admin-page [class*="text-slate-500"],
 [data-theme="light"] .admin-page [class*="text-slate-600"]
 {
-    color: #64748b;
+    color: var(--text-muted);
+}
+[data-theme="light"] .admin-page [class*="text-indigo-100"],
+[data-theme="light"] .admin-page [class*="text-indigo-200"]
+{
+    color: #4338ca;
+}
+[data-theme="light"] .admin-page [class*="text-rose-200"],
+[data-theme="light"] .admin-page [class*="text-rose-300"]
+{
+    color: #b91c1c;
+}
+[data-theme="light"] .admin-chat-item[aria-current="true"]
+{
+    border-color: var(--primary);
+    background-color: var(--surface-alt);
+}
+[data-theme="light"] .admin-conversation [class*="bg-[#22272E]"]
+{
+    border-color: var(--border);
+    background-color: var(--surface-alt);
+    color: var(--text);
+}
+[data-theme="light"] .admin-page input
+{
+    border-color: var(--border);
+    background-color: var(--surface);
+    color: var(--text);
+}
+[data-theme="light"] .admin-page input::placeholder
+{
+    color: var(--text-muted);
 }
 
 [data-theme="light"] .chat-window
@@ -1987,6 +2057,7 @@ footer p{
 }
 [data-theme="light"] .chat-window-header,
 [data-theme="light"] .chat-window [class*="bg-[#111827]"],
+[data-theme="light"] .chat-window [class*="bg-slate-800"],
 [data-theme="light"] .chat-empty
 {
     background-color: var(--surface-alt);
@@ -2014,6 +2085,16 @@ footer p{
 }
 [data-theme="light"] .chat-window [class*="text-slate-400"],
 [data-theme="light"] .chat-window [class*="text-slate-500"]
+{
+    color: var(--text-muted);
+}
+[data-theme="light"] .chat-window input
+{
+    border-color: var(--border);
+    background-color: var(--surface-alt);
+    color: var(--text);
+}
+[data-theme="light"] .chat-window input::placeholder
 {
     color: var(--text-muted);
 }
