@@ -878,6 +878,105 @@ padding: 5px;
 {
     line-height: 40px;
 }
+.portfolio .project-intro
+{
+    flex: 0 0 100%;
+    max-width: 100%;
+    margin: -12px 0 18px;
+    color: var(--white);
+    text-align: center;
+}
+.portfolio .portfolio-item
+{
+    flex: 0 0 50%;
+    max-width: 50%;
+}
+.portfolio .portfolio-item-inner.project-card
+{
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    cursor: default;
+    background: var(--white);
+}
+.portfolio .project-visual
+{
+    display: flex;
+    min-height: 150px;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, #123f4a, #00a78e);
+    color: var(--white);
+}
+.portfolio .portfolio-item:nth-child(2) .project-visual
+{
+    background: linear-gradient(135deg, #26324f, #6573a6);
+}
+.portfolio .portfolio-item:nth-child(3) .project-visual
+{
+    background: linear-gradient(135deg, #4a2d18, #c57832);
+}
+.portfolio .portfolio-item:nth-child(4) .project-visual
+{
+    background: linear-gradient(135deg, #432951, #a366a0);
+}
+.portfolio .project-visual i
+{
+    font-size: 48px;
+}
+.portfolio .project-card-content
+{
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    align-items: flex-start;
+    padding: 22px;
+    color: #17212f;
+}
+.portfolio .project-type
+{
+    margin-bottom: 8px;
+    color: var(--main-color);
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+}
+.portfolio .project-card-content h4
+{
+    margin-bottom: 10px;
+    color: #17212f;
+    font-size: 19px;
+    line-height: 1.4;
+}
+.portfolio .project-card-content p
+{
+    margin-bottom: 18px;
+    color: #4b5563;
+    line-height: 1.6;
+}
+.portfolio .project-status
+{
+    margin-top: auto;
+    margin-bottom: 14px;
+    color: #4b5563;
+    font-size: 13px;
+}
+.portfolio .project-status i
+{
+    margin-right: 5px;
+    color: var(--main-color);
+}
+.portfolio .project-source-link
+{
+    color: #087c6b;
+    font-weight: 700;
+}
+.portfolio .project-source-link:hover
+{
+    color: #075e52;
+    text-decoration: underline;
+}
 
 /*===== pricing =====*/
 .pricing-item

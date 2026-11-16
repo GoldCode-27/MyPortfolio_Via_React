@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import Chat from './components/Chat.jsx'
 
 const navItems = [
@@ -17,36 +17,32 @@ const skills = [
   { title: 'Android', value: 70, progress: '70%' },
 ]
 
+const githubRepositoriesUrl = 'https://github.com/GoldCode-27?tab=repositories'
+
 const portfolioItems = [
   {
-    title: 'web design',
-    category: 'wordpress',
-    imgSrc: '/images/portfolio/portfolio-1.jpg',
+    title: 'K-12 School Management Platform',
+    description: 'A management platform built for K-12 school workflows.',
+    icon: 'fas fa-school',
+    type: 'Education',
   },
   {
-    title: 'wordpress',
-    category: 'wordpress',
-    imgSrc: '/images/portfolio/portfolio-2.jpg',
+    title: 'Debre Tabor City Administration HRM System',
+    description: 'A human resource management system for city administration.',
+    icon: 'fas fa-landmark',
+    type: 'Public administration',
   },
   {
-    title: 'photography',
-    category: 'web-design',
-    imgSrc: '/images/portfolio/portfolio-3.jpg',
+    title: 'E-Bid System',
+    description: 'An electronic bidding system for managing bid workflows.',
+    icon: 'fas fa-file-invoice-dollar',
+    type: 'Procurement',
   },
   {
-    title: 'web-design',
-    category: 'web-design',
-    imgSrc: '/images/portfolio/portfolio-4.jpg',
-  },
-  {
-    title: 'wordpress',
-    category: 'wordpress',
-    imgSrc: '/images/portfolio/portfolio-5.jpg',
-  },
-  {
-    title: 'photography',
-    category: 'photography',
-    imgSrc: '/images/portfolio/photography.jpg',
+    title: 'ማረፊያ (Hostel Management System)',
+    description: 'A hostel management system for accommodation operations.',
+    icon: 'fas fa-bed',
+    type: 'Hospitality',
   },
 ]
 
@@ -58,19 +54,8 @@ function App() {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [activeSectionId, setActiveSectionId] = useState('home')
   const [skillsAnimated, setSkillsAnimated] = useState(false)
-  const [portfolioFilter, setPortfolioFilter] = useState('all')
-
-  const [lightboxOpen, setLightboxOpen] = useState(false)
-  const [lightboxIndex, setLightboxIndex] = useState(0)
 
   const skillsWrapRef = useRef(null)
-
-  const filteredPortfolio = useMemo(() => {
-    return portfolioItems.map((item) => {
-      const shouldShow = portfolioFilter === 'all' || portfolioFilter === item.category
-      return { ...item, shouldShow }
-    })
-  }, [portfolioFilter])
 
   useEffect(() => {
     const onScroll = () => {
@@ -118,31 +103,12 @@ function App() {
     return () => observer.disconnect()
   }, [])
 
-  useEffect(() => {
-    const onKeyDown = (e) => {
-      if (!lightboxOpen) return
-      if (e.key === 'Escape') setLightboxOpen(false)
-      if (e.key === 'ArrowRight') setLightboxIndex((i) => (i + 1) % portfolioItems.length)
-      if (e.key === 'ArrowLeft')
-        setLightboxIndex((i) => (i - 1 + portfolioItems.length) % portfolioItems.length)
-    }
-    document.addEventListener('keydown', onKeyDown)
-    return () => document.removeEventListener('keydown', onKeyDown)
-  }, [lightboxOpen])
-
-  const openLightbox = (index) => {
-    setLightboxIndex(index)
-    setLightboxOpen(true)
-  }
-
   const onNavClick = (id) => {
     setIsMenuOpen(false)
     const el = document.getElementById(id)
     if (!el) return
     el.scrollIntoView({ behavior: 'smooth', block: 'start' })
   }
-
-  const lightboxItem = portfolioItems[lightboxIndex]
 
   useEffect(() => {
     const root = document.documentElement
@@ -237,7 +203,7 @@ function App() {
                   paddingBottom: 0,
                 }}
               >
-                [workineh Chalachew]
+                Workineh Chalachew
               </h2>
               <h1
                 className="text_animation"
@@ -250,9 +216,9 @@ function App() {
                 I&apos;m a <span style={{ fontSize: 100 }}></span>
               </h1>
               <p style={{ paddingTop: 0, marginTop: 0, color: 'rgb(43, 19, 2)' }}>
-                I specialized in <b>Web development</b>,<b>freelancing</b>,<b>graphics Design</b>,
-                offering high-quality,tailored solutions that indivduals and business grow. with a
-                strong focus on <b> excellence cretivity and reliability.</b>
+                I&apos;m a software developer who builds practical systems for schools, public
+                administration, procurement, and hostel management. I develop and run my projects
+                locally, with their source code available on GitHub.
               </p>
 
               <button type="button" id="start_button">
@@ -269,30 +235,53 @@ function App() {
               </button>
 
               <div className="header-social" id="header_socia">
-                <a href="https://www.facebook.com/workinew.chale" target="_blank" rel="noreferrer">
-                  <i className="fab fa-facebook-f" style={{ color: 'blue' }}></i>
-                </a>
-                <a href="https://www.youtube.com/@work-u2v" target="_blank" rel="noreferrer">
-                  <i className="fab fa-youtube" style={{ color: 'rgb(185, 22, 22)' }}></i>
-                </a>
-                <a href="#">
-                  <i className="fab fa-twitter" style={{ color: 'rgb(88, 138, 139)' }}></i>
-                </a>
-                <a href="#">
-                  <i className="fab fa-instagram" style={{ color: 'orangered' }}></i>
-                </a>
-                <a href="#">
-                  <i className="fab fa-linkedin"></i>
-                </a>
-                <a href="#">
-                  <i className="fab fa-telegram" style={{ color: 'rgb(78, 82, 77)' }}></i>
+                <a
+                  className="social-facebook"
+                  href="https://www.facebook.com/workinew.chale"
+                  target="_blank"
+                  rel="noreferrer"
+                  aria-label="Facebook"
+                >
+                  <i className="fab fa-facebook-f" aria-hidden="true"></i>
                 </a>
                 <a
+                  className="social-youtube"
+                  href="https://www.youtube.com/@work-u2v"
+                  target="_blank"
+                  rel="noreferrer"
+                  aria-label="YouTube"
+                >
+                  <i className="fab fa-youtube" aria-hidden="true"></i>
+                </a>
+                <a
+                  className="social-github"
+                  href={githubRepositoriesUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  aria-label="GitHub repositories"
+                >
+                  <i className="fab fa-github" aria-hidden="true"></i>
+                </a>
+                <a className="social-twitter" href="#" aria-label="Twitter">
+                  <i className="fab fa-twitter" aria-hidden="true"></i>
+                </a>
+                <a className="social-instagram" href="#" aria-label="Instagram">
+                  <i className="fab fa-instagram" aria-hidden="true"></i>
+                </a>
+                <a className="social-linkedin" href="#" aria-label="LinkedIn">
+                  <i className="fab fa-linkedin" aria-hidden="true"></i>
+                </a>
+                <a className="social-telegram" href="#" aria-label="Telegram">
+                  <i className="fab fa-telegram" aria-hidden="true"></i>
+                </a>
+                <a
+                  className="social-tiktok"
                   href="https://vm.tiktok.com/ZMHg3XW6CVGQh-aLsp9/"
                   target="_blank"
                   rel="noreferrer"
+                  aria-label="TikTok"
                 >
-                  <i className="fab fa-tiktok" style={{ color: 'rgb(10, 8, 4)' }}></i>
+                  <i className="fab fa-tiktok" aria-hidden="true"></i>
                 </a>
               </div>
             </div>
@@ -348,13 +337,10 @@ function App() {
               </div>
 
               <p>
-                I&apos;m a tech-focused freelancer and romote developer with a strong passion for
-                coding,innovation and digital problem solving. I build modern responsive websites
-                and application using HTML,CSS,javaScript and with the collaboration of backend
-                development in efficient and user iteractive interface and also other current
-                technologies.
-                <br />
-                <br />
+                I&apos;m Workineh Chalachew, a software developer focused on building useful
+                management systems. My projects include a K-12 school platform, a city
+                administration HRM system, an electronic bidding system, and a hostel management
+                system. They run locally on my computer, and I share their source code on GitHub.
               </p>
 
               <div className="about-skills" ref={skillsWrapRef}>
@@ -491,7 +477,11 @@ function App() {
           <div className="row">
             <div className="section-title text-align">
               <h5 className="sub-title">Projects</h5>
-              <h3 className="main-title">These are my latest projects</h3>
+              <h3 className="main-title">Systems I&apos;ve built</h3>
+              <p className="project-intro">
+                These projects run locally on my computer. Their source code is available in my
+                GitHub repositories.
+              </p>
               <ul className="lines">
                 <li></li>
                 <li></li>
@@ -501,43 +491,27 @@ function App() {
           </div>
 
           <div className="row">
-            <div className="portfolio-filter">
-              {[
-                { id: 'all', label: 'All' },
-                { id: 'web-design', label: 'web design' },
-                { id: 'photography', label: 'photography' },
-                { id: 'wordpress', label: 'wordpress' },
-              ].map((f) => (
-                <button
-                  type="button"
-                  key={f.id}
-                  className={portfolioFilter === f.id ? 'active' : undefined}
-                  data-filter={f.id}
-                  onClick={() => setPortfolioFilter(f.id)}
-                >
-                  {f.label}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="row">
-            {filteredPortfolio.map((item, idx) => (
-              <div
-                key={`${item.imgSrc}-${idx}`}
-                className={`portfolio-item ${item.shouldShow ? 'show' : 'hide'}`}
-                data-category={item.category}
-                onClick={() => openLightbox(idx)}
-              >
-                <div className="portfolio-item-inner">
-                  <div className="portfolio-img">
-                    <img src={item.imgSrc} alt={item.title} />
+            {portfolioItems.map((item) => (
+              <div key={item.title} className="portfolio-item">
+                <div className="portfolio-item-inner project-card">
+                  <div className="project-visual" aria-hidden="true">
+                    <i className={item.icon}></i>
                   </div>
-                  <div className="portfolio-info">
+                  <div className="project-card-content">
+                    <span className="project-type">{item.type}</span>
                     <h4>{item.title}</h4>
-                    <div className="icon">
-                      <i className="fa fa-search"></i>
-                    </div>
+                    <p>{item.description}</p>
+                    <span className="project-status">
+                      <i className="fas fa-desktop" aria-hidden="true"></i> Runs locally
+                    </span>
+                    <a
+                      className="project-source-link"
+                      href={githubRepositoriesUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      <i className="fab fa-github" aria-hidden="true"></i> Browse source on GitHub
+                    </a>
                   </div>
                 </div>
               </div>
@@ -827,52 +801,6 @@ function App() {
           &copy;All Right reserved:Workineh&apos;s portfolio.
         </p>
       </footer>
-
-      <div
-        className={`lightbox${lightboxOpen ? ' open' : ''}`}
-        onClick={(e) => {
-          if (e.target.classList.contains('lightbox') || e.target.classList.contains('lightbox-close')) {
-            setLightboxOpen(false)
-          }
-        }}
-        role="dialog"
-        aria-modal="true"
-        aria-hidden={!lightboxOpen}
-      >
-        <div className="lightbox-content" onClick={(e) => e.stopPropagation()}>
-          <button type="button" className="lightbox-close" aria-label="Close lightbox">
-            &times;
-          </button>
-
-          <div className="lightbox-img-wrap">
-            <img className="lightbox-img" src={lightboxItem?.imgSrc} alt={lightboxItem?.title ?? ''} />
-          </div>
-
-          <div className="lightbox-caption">
-            <div className="caption-text">{lightboxItem?.title}</div>
-            <div className="caption-counter">
-              {lightboxIndex + 1} of {portfolioItems.length}
-            </div>
-          </div>
-
-          <button
-            type="button"
-            className="lightbox-prev"
-            aria-label="Previous item"
-            onClick={() => setLightboxIndex((i) => (i - 1 + portfolioItems.length) % portfolioItems.length)}
-          >
-            &#10094;
-          </button>
-          <button
-            type="button"
-            className="lightbox-next"
-            aria-label="Next item"
-            onClick={() => setLightboxIndex((i) => (i + 1) % portfolioItems.length)}
-          >
-            &#10095;
-          </button>
-        </div>
-      </div>
 
       <Chat />
     </>
