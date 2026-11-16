@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import Chat from './components/Chat.jsx'
+import ThemeToggle from './components/ThemeToggle.jsx'
 
 const navItems = [
   { id: 'home', label: 'Home' },
@@ -47,9 +48,6 @@ const portfolioItems = [
 ]
 
 function App() {
-  const [theme, setTheme] = useState(
-    () => localStorage.getItem('portfolio_theme') || 'light',
-  )
   const [isSticky, setIsSticky] = useState(false)
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [activeSectionId, setActiveSectionId] = useState('home')
@@ -110,17 +108,6 @@ function App() {
     el.scrollIntoView({ behavior: 'smooth', block: 'start' })
   }
 
-  useEffect(() => {
-    const root = document.documentElement
-    root.classList.remove('theme-light', 'theme-dark')
-    root.classList.add(`theme-${theme}`)
-    localStorage.setItem('portfolio_theme', theme)
-  }, [theme])
-
-  const toggleTheme = () => {
-    setTheme((prev) => (prev === 'dark' ? 'light' : 'dark'))
-  }
-
   return (
     <>
       <nav className={`navbar${isSticky ? ' sticky' : ''}`}>
@@ -158,14 +145,7 @@ function App() {
             </div>
 
             <div className="flex items-center gap-2">
-              <button
-                type="button"
-                className="theme-toggle-btn"
-                onClick={toggleTheme}
-                aria-label="Toggle theme"
-              >
-                {theme === 'dark' ? '☀︎' : '☾'}
-              </button>
+              <ThemeToggle />
               <button
                 type="button"
                 className="menu-btn"
@@ -185,20 +165,20 @@ function App() {
           <div className="row align-items-center">
             <div className="home-text">
               <h2
+                className="hero-greeting"
                 style={{
                   fontFamily: "'Times New Roman', Times, serif",
-                  color: 'rgb(9, 94, 94)',
                   fontSize: 40,
                 }}
               >
                 Hi,It&apos;s me
               </h2>
               <h2
+                className="hero-name"
                 style={{
                   paddingLeft: '0%',
                   paddingTop: 10,
                   fontSize: 50,
-                  color: 'rgb(85, 6, 36)',
                   fontWeight: 800,
                   paddingBottom: 0,
                 }}
@@ -215,7 +195,7 @@ function App() {
               >
                 I&apos;m a <span style={{ fontSize: 100 }}></span>
               </h1>
-              <p style={{ paddingTop: 0, marginTop: 0, color: 'rgb(43, 19, 2)' }}>
+              <p style={{ paddingTop: 0, marginTop: 0 }}>
                 I&apos;m a software developer who builds practical systems for schools, public
                 administration, procurement, and hostel management. I develop and run my projects
                 locally, with their source code available on GitHub.
@@ -224,7 +204,6 @@ function App() {
               <button type="button" id="start_button">
                 <a
                   href="#about"
-                  style={{ color: 'rgb(221, 226, 231)' }}
                   onClick={(e) => {
                     e.preventDefault()
                     onNavClick('about')
@@ -374,7 +353,6 @@ function App() {
       <section
         className="service-section section-padding"
         id="services"
-        style={{ backgroundColor: 'rgb(121, 58, 35)', margin: 17, borderRadius: 10 }}
       >
         <div className="container">
           <div className="row">
@@ -396,7 +374,7 @@ function App() {
                   <i className="fas fa-laptop-code"></i>
                 </div>
                 <h3>Web development</h3>
-                <p style={{ color: 'rgb(46, 17, 2)', fontWeight: 500, fontSize: 18 }}>
+                <p className="service-description" style={{ fontWeight: 500, fontSize: 18 }}>
                   I develop fast.functional,and interactive websites using clean,well-structured
                   code withtechnologies like javaScript and frontend library.
                 </p>
@@ -409,7 +387,7 @@ function App() {
                   <i className="fab fa-android"></i>
                 </div>
                 <h3>Android development</h3>
-                <p style={{ color: 'rgb(46, 17, 2)', fontWeight: 500, fontSize: 18 }}>
+                <p className="service-description" style={{ fontWeight: 500, fontSize: 18 }}>
                   I built intuitive and user friendly android applications with smooth functionality
                   and appealing design using java or kotlin.
                 </p>
@@ -422,7 +400,7 @@ function App() {
                   <i className="fas fa-code"></i>
                 </div>
                 <h3>Clean Code</h3>
-                <p style={{ color: 'rgb(46, 17, 2)', fontWeight: 500, fontSize: 18 }}>
+                <p className="service-description" style={{ fontWeight: 500, fontSize: 18 }}>
                   I write organazed,maintanable and scalable code that follows best practices-making
                   future updates easier and more efficient.
                 </p>
@@ -435,7 +413,7 @@ function App() {
                   <i className="fas fa-laptop-house"></i>
                 </div>
                 <h3>Remote Working</h3>
-                <p style={{ color: 'rgb(46, 17, 2)', fontWeight: 500, fontSize: 18 }}>
+                <p className="service-description" style={{ fontWeight: 500, fontSize: 18 }}>
                   I create website that look and work perfectly across all devices-mobiles,tablet
                   and desktop by using modern HTML,CSS and responsive frameworks.
                 </p>
@@ -448,7 +426,7 @@ function App() {
                   <i className="fas fa-video"></i>
                 </div>
                 <h3>Video Editing</h3>
-                <p style={{ color: 'rgb(46, 17, 2)', fontWeight: 500, fontSize: 18 }}>
+                <p className="service-description" style={{ fontWeight: 500, fontSize: 18 }}>
                   I edit and produce high quality videos for web,social media,and promotional
                   content using tools like Adobr premium,capcut,AIand also trough compatable
                   softwares.
@@ -462,7 +440,7 @@ function App() {
                   <i className="fas fa-palette"></i>
                 </div>
                 <h3>Graphic design</h3>
-                <p style={{ color: 'rgb(46, 17, 2)', fontWeight: 500, fontSize: 18 }}>
+                <p className="service-description" style={{ fontWeight: 500, fontSize: 18 }}>
                   I craft visually engaging graphics,logos and UI elements that enhance user
                   experiance and give brands a professional identity.
                 </p>
@@ -472,7 +450,7 @@ function App() {
         </div>
       </section>
 
-      <section className="portfolio section-padding" id="portfolio" style={{ backgroundColor: 'rgb(12, 53, 53)' }}>
+      <section className="portfolio section-padding" id="portfolio">
         <div className="container">
           <div className="row">
             <div className="section-title text-align">
@@ -674,15 +652,12 @@ function App() {
       <section
         className="contact-section section-padding"
         id="contact"
-        style={{ height: 'auto', margin: 20, borderRadius: 5, backgroundColor: 'rgb(6, 1, 19)' }}
       >
         <div className="container">
           <div className="row">
             <div className="section-title text-align">
               <h5 className="sub-title">contact</h5>
-              <h3 className="main-title" style={{ color: 'white' }}>
-                get in touch
-              </h3>
+              <h3 className="main-title">get in touch</h3>
               <ul className="line">
                 <li></li>
                 <li></li>
@@ -797,7 +772,7 @@ function App() {
       </section>
 
       <footer>
-        <p style={{ textAlign: 'center', backgroundColor: 'rgb(31, 136, 101)' }}>
+        <p>
           &copy;All Right reserved:Workineh&apos;s portfolio.
         </p>
       </footer>

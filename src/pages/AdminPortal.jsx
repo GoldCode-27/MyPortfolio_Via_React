@@ -1,8 +1,33 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { onValue, push, ref } from 'firebase/database'
 import { db } from '../firebase'
+import ThemeToggle from '../components/ThemeToggle.jsx'
 
 const ADMIN_SESSION_KEY = 'portfolio_admin_authed'
+
+function hasAdminSession() {
+  try {
+    return window.sessionStorage.getItem(ADMIN_SESSION_KEY) === '1'
+  } catch {
+    return false
+  }
+}
+
+function setAdminSession() {
+  try {
+    window.sessionStorage.setItem(ADMIN_SESSION_KEY, '1')
+  } catch {
+    // Keep this admin session active for the current page when storage is unavailable.
+  }
+}
+
+function clearAdminSession() {
+  try {
+    window.sessionStorage.removeItem(ADMIN_SESSION_KEY)
+  } catch {
+    // The session is cleared in memory even when browser storage is unavailable.
+  }
+}
 
 function formatDateTime(ts) {
   if (!ts) return ''
@@ -20,7 +45,7 @@ function notifyVisitorMessage(sessionId, message) {
 export default function AdminPortal() {
   const [adminPassword, setAdminPassword] = useState(null)
   const [authReady, setAuthReady] = useState(false)
-  const [authed, setAuthed] = useState(() => sessionStorage.getItem(ADMIN_SESSION_KEY) === '1')
+  const [authed, setAuthed] = useState(hasAdminSession)
   const [passwordInput, setPasswordInput] = useState('')
   const [loginError, setLoginError] = useState('')
 
@@ -45,7 +70,7 @@ export default function AdminPortal() {
   }, [adminPasswordRef])
 
   const logout = () => {
-    sessionStorage.removeItem(ADMIN_SESSION_KEY)
+    clearAdminSession()
     setAuthed(false)
     setPasswordInput('')
     setLoginError('')
@@ -62,7 +87,7 @@ export default function AdminPortal() {
       setLoginError('Incorrect password.')
       return
     }
-    sessionStorage.setItem(ADMIN_SESSION_KEY, '1')
+    setAdminSession()
     setAuthed(true)
     setLoginError('')
     setPasswordInput('')
@@ -139,7 +164,7 @@ export default function AdminPortal() {
   const activeSession = sessions.find((s) => s.sessionId === activeSessionId) || null
 
   return (
-    <div className="min-h-screen bg-[#0B0E14] bg-[radial-gradient(circle_at_top,_rgba(148,163,184,0.18)_0,_transparent_55%)] font-sans text-slate-50">
+    <div className="admin-page min-h-screen font-sans">
       <div className="mx-auto flex min-h-screen max-w-6xl flex-col px-4 py-6">
         {/* Global header */}
         <header className="mb-6 flex items-center justify-between">
@@ -153,13 +178,16 @@ export default function AdminPortal() {
               Manage live conversations stored under <span className="font-mono text-slate-300">chats/</span>
             </p>
           </div>
-          <a
-            href="/"
-            className="inline-flex items-center gap-2 rounded-xl border border-slate-700/70 bg-[#151921] px-3 py-2 text-xs font-medium text-slate-100 shadow-sm backdrop-blur-xl transition hover:border-slate-500 hover:bg-[#1b2130]"
-          >
-            <span className="h-1.5 w-1.5 rounded-full bg-slate-400" />
-            <span>Back to site</span>
-          </a>
+          <div className="flex items-center gap-3">
+            <ThemeToggle />
+            <a
+              href="/"
+              className="inline-flex items-center gap-2 rounded-xl border border-slate-700/70 bg-[#151921] px-3 py-2 text-xs font-medium text-slate-100 shadow-sm backdrop-blur-xl transition hover:border-slate-500 hover:bg-[#1b2130]"
+            >
+              <span className="h-1.5 w-1.5 rounded-full bg-slate-400" />
+              <span>Back to site</span>
+            </a>
+          </div>
         </header>
 
         {/* LOGIN */}

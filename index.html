@@ -8,7 +8,35 @@
       name="description"
       content="Portfolio of Workineh Chalachew, featuring school management, city administration HRM, e-bid, and hostel management systems."
     />
+    <meta name="theme-color" content="#f7f7f7" />
     <title>Workineh Chalachew | Software Developer</title>
+
+    <script>
+      (() => {
+        const root = document.documentElement
+        let mode = 'system'
+
+        try {
+          const storedMode = window.localStorage.getItem('theme')
+          if (storedMode === 'light' || storedMode === 'dark' || storedMode === 'system') {
+            mode = storedMode
+          }
+        } catch {
+          // Use the system preference when browser storage is unavailable.
+        }
+
+        const prefersDark = window.matchMedia?.('(prefers-color-scheme: dark)').matches ?? false
+        const resolvedTheme =
+          mode === 'system' ? (prefersDark ? 'dark' : 'light') : mode
+
+        root.dataset.theme = resolvedTheme
+        root.dataset.themeMode = mode
+        document.querySelector('meta[name="theme-color"]')?.setAttribute(
+          'content',
+          resolvedTheme === 'dark' ? '#0b1220' : '#f7f7f7',
+        )
+      })()
+    </script>
 
     <!-- Font Awesome (kept from original site) -->
     <link

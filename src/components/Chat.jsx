@@ -2,28 +2,44 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { onValue, push, ref, set, query, limitToLast } from 'firebase/database'
 import { db } from '../firebase'
 
+function getStoredValue(key) {
+  try {
+    return window.localStorage.getItem(key)
+  } catch {
+    return null
+  }
+}
+
+function storeValue(key, value) {
+  try {
+    window.localStorage.setItem(key, value)
+  } catch {
+    // Chat remains usable for the current page when browser storage is unavailable.
+  }
+}
+
 function getOrCreateSessionId() {
   const key = 'portfolio_chat_session_id'
-  const existing = localStorage.getItem(key)
+  const existing = getStoredValue(key)
   if (existing) return existing
 
   const id =
     typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
       ? crypto.randomUUID()
       : `sess_${Date.now()}_${Math.random().toString(16).slice(2)}`
-  localStorage.setItem(key, id)
+  storeValue(key, id)
   return id
 }
 
 function getOrCreateVisitorName() {
   const key = 'portfolio_chat_name'
-  const existing = localStorage.getItem(key)
+  const existing = getStoredValue(key)
   if (existing) return existing
   return ''
 }
 
 function saveVisitorName(name) {
-  localStorage.setItem('portfolio_chat_name', name)
+  storeValue('portfolio_chat_name', name)
 }
 
 function notifyNewVisitorMessage(sessionId, message) {
@@ -159,9 +175,9 @@ export default function Chat() {
             onClick={() => setOpen(false)}
           />
 
-          <div className="relative bottom-20 right-4 flex w-[94vw] max-w-sm origin-bottom-right scale-100 flex-col rounded-3xl border border-slate-800/80 bg-[#0B0E14]/95 text-slate-50 shadow-[0_24px_80px_rgba(0,0,0,0.95)] backdrop-blur-md transition-all duration-300 max-h-[500px] sm:bottom-24">
+          <div className="chat-window relative bottom-20 right-4 flex w-[94vw] max-w-sm origin-bottom-right scale-100 flex-col rounded-3xl border border-slate-800/80 bg-[#0B0E14]/95 text-slate-50 shadow-[0_24px_80px_rgba(0,0,0,0.95)] backdrop-blur-md transition-all duration-300 max-h-[500px] sm:bottom-24">
             {/* Header */}
-            <div className="flex items-center justify-between rounded-t-3xl bg-[#111827] px-4 py-3 sm:px-5">
+            <div className="chat-window-header flex items-center justify-between rounded-t-3xl bg-[#111827] px-4 py-3 sm:px-5">
               <div className="min-w-0">
                 <div className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
                   Workineh&apos;s Portfolio
@@ -184,7 +200,7 @@ export default function Chat() {
 
             {/* Name field (only if not set) */}
             {!hasName && (
-              <div className="border-b border-slate-800/80 bg-[#0B0E14] px-4 py-2.5 text-xs sm:px-5">
+              <div className="chat-name-panel border-b border-slate-800/80 bg-[#0B0E14] px-4 py-2.5 text-xs sm:px-5">
                 <label className="block text-[11px] font-medium text-slate-400">Your name (optional)</label>
                 <input
                   value={name}
@@ -199,10 +215,10 @@ export default function Chat() {
             )}
 
             {/* Messages */}
-            <div className="flex-1 overflow-y-auto bg-[radial-gradient(circle_at_top,_rgba(30,64,175,0.18)_0,_transparent_55%)] px-3 py-3 sm:px-4 sm:py-4">
+            <div className="chat-messages flex-1 overflow-y-auto bg-[radial-gradient(circle_at_top,_rgba(30,64,175,0.18)_0,_transparent_55%)] px-3 py-3 sm:px-4 sm:py-4">
               <div className="flex min-h-full flex-col justify-end">
                 {messages.length === 0 ? (
-                  <div className="mt-4 rounded-2xl border border-slate-800/80 bg-[#111827]/80 p-3 text-xs text-slate-400">
+                  <div className="chat-empty mt-4 rounded-2xl border border-slate-800/80 bg-[#111827]/80 p-3 text-xs text-slate-400">
                     No messages yet. Say hi, and I&apos;ll respond as soon as I can.
                   </div>
                 ) : (
@@ -238,7 +254,7 @@ export default function Chat() {
             </div>
 
             {/* Input */}
-            <div className="border-t border-slate-800/80 bg-[#0B0E14]/95 px-3 py-2.5 backdrop-blur-md sm:px-4">
+            <div className="chat-input-area border-t border-slate-800/80 bg-[#0B0E14]/95 px-3 py-2.5 backdrop-blur-md sm:px-4">
               <div className="flex items-center gap-2">
                 <div className="relative flex-1">
                   <input
