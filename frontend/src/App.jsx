@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { apiRequest } from './api.js'
 import Chat from './components/Chat.jsx'
 import ThemeToggle from './components/ThemeToggle.jsx'
 
@@ -54,6 +55,9 @@ function App() {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [activeSectionId, setActiveSectionId] = useState('home')
   const [skillsAnimated, setSkillsAnimated] = useState(false)
+  const [contactStatus, setContactStatus] = useState('')
+  const [contactError, setContactError] = useState('')
+  const [contactSending, setContactSending] = useState(false)
 
   const skillsWrapRef = useRef(null)
 
@@ -108,6 +112,44 @@ function App() {
     const el = document.getElementById(id)
     if (!el) return
     el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
+
+  const submitContactForm = async (event) => {
+    event.preventDefault()
+    setContactStatus('')
+    setContactError('')
+    setContactSending(true)
+    const form = event.currentTarget
+    const formData = new FormData(form)
+
+    try {
+      const result = await apiRequest('/contact', {
+        method: 'POST',
+        body: JSON.stringify({
+          name: formData.get('name'),
+          email: formData.get('email'),
+          subject: formData.get('subject'),
+          message: formData.get('message'),
+          website: formData.get('website'),
+        }),
+      })
+      if (result.submitted) {
+        form.reset()
+        setContactStatus(
+          result.emailStatus === 'sent'
+            ? 'Thanks for reaching out. Your message was saved and emailed successfully.'
+            : result.emailStatus === 'failed'
+              ? 'Your message is saved in my admin inbox, but the email notification could not be sent. I will still receive it here.'
+              : 'Your message is saved in my admin inbox. Email notifications are not configured on the server yet.',
+        )
+      }
+    } catch (error) {
+      setContactError(
+        error instanceof Error ? error.message : 'Could not send your message. Please try again.',
+      )
+    } finally {
+      setContactSending(false)
+    }
   }
 
   return (
@@ -697,7 +739,7 @@ function App() {
           </div>
 
           <div className="fs-wrapper">
-            <form action="https://formspree.io/f/xjkogykq" method="POST" className="fs-form">
+            <form onSubmit={submitContactForm} className="fs-form">
               <div className="section-title">
                 <h1 id="contact_header">contact me</h1>
               </div>
@@ -714,6 +756,7 @@ function App() {
                       id="fsName"
                       className="fs-input"
                       required
+                      maxLength={100}
                       placeholder="Name"
                     />
                   </div>
@@ -728,6 +771,8 @@ function App() {
                       id="fsEmail"
                       className="fs-input"
                       required
+                      maxLength={254}
+                      autoComplete="email"
                       placeholder="E.g, abc123@gmail.com"
                     />
                   </div>
@@ -742,6 +787,7 @@ function App() {
                       id="fsSubject"
                       className="fs-input"
                       required
+                      maxLength={200}
                       placeholder="From what..."
                     />
                   </div>
@@ -759,13 +805,30 @@ function App() {
                       className="fs-input"
                       rows="12"
                       required
-                      maxLength={500}
+                      maxLength={5000}
                     ></textarea>
                   </div>
                 </div>
 
-                <button type="submit" className="fs-submit-btn" id="submit_button">
-                  Send Message
+                <div className="contact-honeypot" aria-hidden="true">
+                  <label htmlFor="fsWebsite">Leave this field empty</label>
+                  <input id="fsWebsite" type="text" name="website" tabIndex={-1} autoComplete="off" />
+                </div>
+
+                {contactError && (
+                  <p className="contact-form-feedback error" role="alert">{contactError}</p>
+                )}
+                {contactStatus && (
+                  <p className="contact-form-feedback success" role="status">{contactStatus}</p>
+                )}
+
+                <button
+                  type="submit"
+                  className="fs-submit-btn"
+                  id="submit_button"
+                  disabled={contactSending}
+                >
+                  {contactSending ? 'Sending…' : 'Send Message'}
                 </button>
               </div>
             </form>

@@ -1,33 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { onValue, push, ref } from 'firebase/database'
-import { db } from '../firebase'
+import { apiRequest } from '../api.js'
 import ThemeToggle from '../components/ThemeToggle.jsx'
 
-const ADMIN_SESSION_KEY = 'portfolio_admin_authed'
-
-function hasAdminSession() {
-  try {
-    return window.sessionStorage.getItem(ADMIN_SESSION_KEY) === '1'
-  } catch {
-    return false
-  }
-}
-
-function setAdminSession() {
-  try {
-    window.sessionStorage.setItem(ADMIN_SESSION_KEY, '1')
-  } catch {
-    // Keep this admin session active for the current page when storage is unavailable.
-  }
-}
-
-function clearAdminSession() {
-  try {
-    window.sessionStorage.removeItem(ADMIN_SESSION_KEY)
-  } catch {
-    // The session is cleared in memory even when browser storage is unavailable.
-  }
-}
 
 function formatDateTime(ts) {
   if (!ts) return ''
@@ -36,32 +10,41 @@ function formatDateTime(ts) {
   return d.toLocaleString()
 }
 
-function notifyVisitorMessage(sessionId, message) {
-  // Placeholder hook for AfroMessage/SMS
-  // eslint-disable-next-line no-console
-  console.log('[sms-hook] New visitor message:', { sessionId, message })
-}
-
 export default function AdminPortal() {
-  const [adminPassword, setAdminPassword] = useState(null)
   const [authReady, setAuthReady] = useState(false)
-  const [authed, setAuthed] = useState(hasAdminSession)
+  const [authed, setAuthed] = useState(false)
   const [passwordInput, setPasswordInput] = useState('')
   const [loginError, setLoginError] = useState('')
+  const [authBusy, setAuthBusy] = useState(false)
+  const [passwordDialogOpen, setPasswordDialogOpen] = useState(false)
+  const [currentPassword, setCurrentPassword] = useState('')
+  const [newPassword, setNewPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+  const [passwordUpdateBusy, setPasswordUpdateBusy] = useState(false)
+  const [passwordUpdateError, setPasswordUpdateError] = useState('')
+  const [passwordUpdateSuccess, setPasswordUpdateSuccess] = useState('')
+  const [liveStatus, setLiveStatus] = useState('connecting')
 
   const [sessions, setSessions] = useState([])
   const [sessionSearch, setSessionSearch] = useState('')
   const [activeSessionId, setActiveSessionId] = useState(null)
   const [messages, setMessages] = useState([])
+  const [activeView, setActiveView] = useState('inbox')
+  const [contactSubmissions, setContactSubmissions] = useState([])
+  const [activeContactId, setActiveContactId] = useState(null)
+  const [contactLoading, setContactLoading] = useState(false)
+  const [contactError, setContactError] = useState('')
   const [reply, setReply] = useState('')
   const [sending, setSending] = useState(false)
   const [sendError, setSendError] = useState('')
+  const [dashboardError, setDashboardError] = useState('')
 
-  const lastSeenBySessionRef = useRef(new Map())
   const messagesEndRef = useRef(null)
+  const currentPasswordInputRef = useRef(null)
+  const passwordActionRef = useRef(null)
+  const activeSessionIdRef = useRef(activeSessionId)
+  activeSessionIdRef.current = activeSessionId
 
-  const chatsRef = useMemo(() => ref(db, 'chats'), [])
-  const adminPasswordRef = useMemo(() => ref(db, 'admin_config/password'), [])
   const filteredSessions = useMemo(() => {
     const search = sessionSearch.trim().toLowerCase()
     if (!search) return sessions
@@ -74,72 +57,175 @@ export default function AdminPortal() {
   }, [sessions, sessionSearch])
 
   useEffect(() => {
-    const unsub = onValue(adminPasswordRef, (snap) => {
-      const val = snap.val()
-      setAdminPassword(typeof val === 'string' ? val : null)
-      setAuthReady(true)
-    })
-    return () => unsub()
-  }, [adminPasswordRef])
+    let active = true
+    apiRequest('/admin/session')
+      .then(() => {
+        if (active) setAuthed(true)
+      })
+      .catch((error) => {
+        if (active && error.status !== 401) {
+          setLoginError(error instanceof Error ? error.message : 'Could not reach the server.')
+        }
+      })
+      .finally(() => {
+        if (active) setAuthReady(true)
+      })
+    return () => {
+      active = false
+    }
+  }, [])
 
-  const logout = () => {
-    clearAdminSession()
-    setAuthed(false)
-    setPasswordInput('')
-    setLoginError('')
+  const logout = async () => {
+    setDashboardError('')
+    try {
+      await apiRequest('/admin/logout', { method: 'POST' })
+      setAuthed(false)
+      setPasswordInput('')
+      setLoginError('')
+      setSessions([])
+      setActiveSessionId(null)
+      setMessages([])
+      setContactSubmissions([])
+      setActiveContactId(null)
+    } catch (error) {
+      if (error.status === 401) {
+        setAuthed(false)
+        setSessions([])
+        setActiveSessionId(null)
+        setMessages([])
+        setContactSubmissions([])
+        setActiveContactId(null)
+      } else {
+        setDashboardError(error instanceof Error ? error.message : 'Could not sign out.')
+      }
+    }
   }
 
-  const attemptLogin = () => {
-    const expected = (adminPassword || '').trim()
-    const given = passwordInput.trim()
-    if (!expected) {
-      setLoginError('Admin password is not set in Firebase yet.')
-      return
-    }
-    if (given !== expected) {
-      setLoginError('Incorrect password.')
-      return
-    }
-    setAdminSession()
-    setAuthed(true)
+  const attemptLogin = async () => {
+    if (!passwordInput) return
+    setAuthBusy(true)
     setLoginError('')
-    setPasswordInput('')
+    try {
+      await apiRequest('/admin/login', {
+        method: 'POST',
+        body: JSON.stringify({ password: passwordInput }),
+      })
+      setAuthed(true)
+      setPasswordInput('')
+    } catch (error) {
+      setLoginError(error instanceof Error ? error.message : 'Could not sign in.')
+    } finally {
+      setAuthBusy(false)
+    }
   }
 
   useEffect(() => {
     if (!authed) return
-    const unsub = onValue(chatsRef, (snap) => {
-      const val = snap.val() || {}
-      const next = Object.entries(val).map(([sessionId, chat]) => {
-        const profile = chat?.profile || {}
-        const msgObj = chat?.messages || {}
-        const msgArr = Object.entries(msgObj).map(([key, m]) => ({ key, ...m }))
-        msgArr.sort((a, b) => (a.timestamp ?? 0) - (b.timestamp ?? 0))
-        const last = msgArr[msgArr.length - 1]
-
-        const prevKey = lastSeenBySessionRef.current.get(sessionId)
-        if (last?.key && prevKey && last.key !== prevKey && last.sender === 'visitor') {
-          notifyVisitorMessage(sessionId, last)
+    let active = true
+    const loadConversations = async () => {
+      try {
+        const { conversations } = await apiRequest('/admin/conversations')
+        if (!active) return
+        setSessions(conversations)
+        setActiveSessionId((current) =>
+          current && conversations.some((item) => item.sessionId === current)
+            ? current
+            : conversations[0]?.sessionId || null,
+        )
+        setDashboardError('')
+      } catch (error) {
+        if (!active) return
+        if (error.status === 401) {
+          setAuthed(false)
+          setLoginError('Your administrator session has expired. Please sign in again.')
+        } else {
+          setDashboardError(
+            error instanceof Error ? error.message : 'Could not load conversations.',
+          )
         }
-        if (last?.key) lastSeenBySessionRef.current.set(sessionId, last.key)
+      }
+    }
+    const loadContactSubmissions = async () => {
+      setContactLoading(true)
+      try {
+        const { submissions } = await apiRequest('/admin/contact-submissions')
+        if (!active) return
+        setContactSubmissions(submissions)
+        setActiveContactId((current) =>
+          current && submissions.some((item) => item.id === current)
+            ? current
+            : submissions[0]?.id || null,
+        )
+        setContactError('')
+      } catch (error) {
+        if (!active) return
+        if (error.status === 401) {
+          setAuthed(false)
+          setLoginError('Your administrator session has expired. Please sign in again.')
+        } else {
+          setContactError(
+            error instanceof Error ? error.message : 'Could not load website inquiries.',
+          )
+        }
+      } finally {
+        if (active) setContactLoading(false)
+      }
+    }
 
-        return {
-          sessionId,
-          name: profile?.name || 'Guest Visitor',
-          lastMessage: last?.text || '',
-          lastTimestamp: last?.timestamp || 0,
+    void loadConversations()
+    void loadContactSubmissions()
+    const eventSource = new EventSource('/api/admin/events')
+    eventSource.addEventListener('ready', () => {
+      void loadConversations()
+      void loadContactSubmissions()
+    })
+    eventSource.addEventListener('chat-update', (event) => {
+      const update = JSON.parse(event.data)
+      void loadConversations()
+      if (update.sessionId === activeSessionIdRef.current) {
+        apiRequest(
+          `/admin/conversations/${encodeURIComponent(update.sessionId)}/messages`,
+        )
+          .then(({ messages: nextMessages }) => {
+            if (active) setMessages(nextMessages)
+          })
+          .catch((error) => {
+            if (active) {
+              setDashboardError(
+                error instanceof Error ? error.message : 'Could not refresh messages.',
+              )
+            }
+          })
+          eventSource.addEventListener('contact-update', () => {
+            void loadContactSubmissions()
+          })
+      }
+    })
+    eventSource.onerror = () => {
+      if (!active) return
+      setLiveStatus('reconnecting')
+      apiRequest('/admin/session').catch((error) => {
+        if (!active) return
+        if (error.status === 401) {
+          setAuthed(false)
+          setLoginError('Your administrator session has expired. Please sign in again.')
+        } else {
+          setDashboardError('Live updates interrupted. Reconnecting…')
         }
       })
+    }
+    eventSource.onopen = () => {
+      if (active) {
+        setLiveStatus('live')
+        setDashboardError('')
+      }
+    }
 
-      next.sort((a, b) => (b.lastTimestamp ?? 0) - (a.lastTimestamp ?? 0))
-      setSessions(next)
-
-      if (!activeSessionId && next.length > 0) setActiveSessionId(next[0].sessionId)
-    })
-
-    return () => unsub()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [chatsRef, authed])
+    return () => {
+      active = false
+      eventSource.close()
+    }
+  }, [authed])
 
   useEffect(() => {
     if (!authed) return
@@ -147,15 +233,42 @@ export default function AdminPortal() {
       setMessages([])
       return
     }
-    const sessionMessagesRef = ref(db, `chats/${activeSessionId}/messages`)
-    const unsub = onValue(sessionMessagesRef, (snap) => {
-      const val = snap.val() || {}
-      const arr = Object.entries(val).map(([key, m]) => ({ key, ...m }))
-      arr.sort((a, b) => (a.timestamp ?? 0) - (b.timestamp ?? 0))
-      setMessages(arr)
-    })
-    return () => unsub()
+    let active = true
+    apiRequest(
+      `/admin/conversations/${encodeURIComponent(activeSessionId)}/messages`,
+    )
+      .then(({ messages: nextMessages }) => {
+        if (active) setMessages(nextMessages)
+      })
+      .catch((error) => {
+        if (!active) return
+        if (error.status === 401) {
+          setAuthed(false)
+          setLoginError('Your administrator session has expired. Please sign in again.')
+        } else {
+          setDashboardError(
+            error instanceof Error ? error.message : 'Could not load conversation messages.',
+          )
+        }
+      })
+    return () => {
+      active = false
+    }
   }, [activeSessionId, authed])
+
+  useEffect(() => {
+    if (!passwordDialogOpen) return
+    currentPasswordInputRef.current?.focus()
+    const passwordActionButton = passwordActionRef.current
+    const closeOnEscape = (event) => {
+      if (event.key === 'Escape') setPasswordDialogOpen(false)
+    }
+    window.addEventListener('keydown', closeOnEscape)
+    return () => {
+      window.removeEventListener('keydown', closeOnEscape)
+      passwordActionButton?.focus()
+    }
+  }, [passwordDialogOpen])
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' })
@@ -167,12 +280,18 @@ export default function AdminPortal() {
     setSending(true)
     setSendError('')
     try {
-      const sessionMessagesRef = ref(db, `chats/${activeSessionId}/messages`)
-      await push(sessionMessagesRef, {
-        sender: 'admin',
-        text: trimmed,
-        timestamp: Date.now(),
-      })
+      const { message } = await apiRequest(
+        `/admin/conversations/${encodeURIComponent(activeSessionId)}/messages`,
+        {
+          method: 'POST',
+          body: JSON.stringify({ text: trimmed }),
+        },
+      )
+      setMessages((current) =>
+        current.some((item) => item.key === message.key)
+          ? current
+          : [...current, message].sort((a, b) => a.timestamp - b.timestamp),
+      )
       setReply('')
     } catch (error) {
       setSendError(
@@ -183,298 +302,733 @@ export default function AdminPortal() {
     }
   }
 
+  const closePasswordDialog = () => {
+    setPasswordDialogOpen(false)
+    setCurrentPassword('')
+    setNewPassword('')
+    setConfirmPassword('')
+    setPasswordUpdateError('')
+    setPasswordUpdateSuccess('')
+  }
+
+  const updatePassword = async (event) => {
+    event.preventDefault()
+    setPasswordUpdateError('')
+    setPasswordUpdateSuccess('')
+
+    if (newPassword !== confirmPassword) {
+      setPasswordUpdateError('The new passwords do not match.')
+      return
+    }
+
+    setPasswordUpdateBusy(true)
+    try {
+      await apiRequest('/admin/password', {
+        method: 'PUT',
+        body: JSON.stringify({ currentPassword, newPassword }),
+      })
+      setCurrentPassword('')
+      setNewPassword('')
+      setConfirmPassword('')
+      setPasswordUpdateSuccess('Your password has been updated successfully.')
+    } catch (error) {
+      setPasswordUpdateError(
+        error instanceof Error ? error.message : 'Could not update your password.',
+      )
+    } finally {
+      setPasswordUpdateBusy(false)
+    }
+  }
+
   const activeSession = sessions.find((s) => s.sessionId === activeSessionId) || null
+  const activeContact =
+    contactSubmissions.find((submission) => submission.id === activeContactId) || null
 
   return (
-    <div className="admin-page min-h-screen font-sans">
-      <div className="mx-auto flex min-h-screen max-w-6xl flex-col px-4 py-6">
-        {/* Global header */}
-        <header className="mb-6 flex items-center justify-between">
-          <div className="space-y-1">
-            <div className="inline-flex items-center gap-2 rounded-full bg-slate-900/60 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400 ring-1 ring-slate-700/60">
-              <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 shadow-[0_0_0_4px_rgba(16,185,129,0.3)]" />
-              Admin
-            </div>
-            <h1 className="text-xl font-semibold text-slate-50 md:text-2xl">Chat Console</h1>
-            <p className="text-xs text-slate-400 md:text-sm">
-              Manage live conversations stored under <span className="font-mono text-slate-300">chats/</span>
-            </p>
-          </div>
-          <div className="flex items-center gap-3">
-            <ThemeToggle />
-            <a
-              href="/"
-              className="inline-flex items-center gap-2 rounded-xl border border-slate-700/70 bg-[#151921] px-3 py-2 text-xs font-medium text-slate-100 shadow-sm backdrop-blur-xl transition hover:border-slate-500 hover:bg-[#1b2130]"
-            >
-              <span className="h-1.5 w-1.5 rounded-full bg-slate-400" />
-              <span>Back to site</span>
-            </a>
-          </div>
-        </header>
-
-        {/* LOGIN */}
-        {!authed && (
-          <main className="flex flex-1 items-center justify-center">
-            <div className="w-full max-w-md overflow-hidden rounded-3xl border border-slate-700/70 bg-[#151921]/95 p-6 shadow-[0_24px_80px_rgba(0,0,0,0.9)] backdrop-blur-2xl">
-              <div className="mb-5">
-                <div className="text-sm font-semibold text-slate-100">Sign in to Admin Console</div>
-                <div className="mt-1 text-xs text-slate-400">
-                  {authReady ? 'Enter the admin password to continue.' : 'Loading admin configuration…'}
+    <div className="admin-app">
+      {!authed ? (
+        <main className="admin-auth-page">
+          <section className="admin-auth-card">
+            <div className="admin-auth-brand">
+              <a className="admin-brand-lockup" href="/" aria-label="Workineh portfolio home">
+                <span className="admin-brand-mark">
+                  <i className="fas fa-layer-group" aria-hidden="true" />
+                </span>
+                <span>WORKINEH<span className="admin-brand-dot">.</span></span>
+              </a>
+              <div className="admin-auth-intro">
+                <span className="admin-eyebrow">PORTFOLIO ADMINISTRATION</span>
+                <h1>Your conversations,<br />all in one place.</h1>
+                <p>Sign in to manage visitor messages and continue conversations in real time.</p>
+              </div>
+              <div className="admin-auth-feature">
+                <span><i className="fas fa-bolt" aria-hidden="true" /></span>
+                <div>
+                  <strong>Live inbox</strong>
+                  <p>New messages appear here as soon as they arrive.</p>
                 </div>
               </div>
-
-              <label className="block text-xs font-semibold text-slate-300">Password</label>
-              <input
-                type="password"
-                value={passwordInput}
-                onChange={(e) => {
-                  setPasswordInput(e.target.value)
-                  setLoginError('')
-                }}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') attemptLogin()
-                }}
-                disabled={!authReady}
-                className="mt-2 w-full rounded-2xl border border-slate-700/70 bg-[#0B0E14]/80 px-3 py-2.5 text-sm text-slate-50 outline-none ring-0 placeholder:text-slate-600 focus:border-indigo-400/70 focus:ring-4 focus:ring-indigo-500/25 disabled:cursor-not-allowed disabled:opacity-60"
-                placeholder="••••••••"
-              />
-
-              {loginError && <div className="mt-3 text-xs font-medium text-rose-300">{loginError}</div>}
-
-              <button
-                type="button"
-                onClick={attemptLogin}
-                disabled={!authReady || !passwordInput.trim()}
-                className="mt-5 inline-flex w-full items-center justify-center rounded-2xl bg-indigo-500 px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-indigo-500/30 transition hover:bg-indigo-400 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                Login
-              </button>
-
-              <p className="mt-4 text-[11px] leading-relaxed text-slate-500">
-                This is a lightweight client-side gate. For production, pair this with Firebase Auth and Realtime Database
-                rules so only authenticated admins can read <span className="font-mono text-slate-300">chats/</span>.
-              </p>
+              <div className="admin-auth-decoration" aria-hidden="true">
+                <span />
+                <span />
+                <span />
+              </div>
             </div>
-          </main>
-        )}
 
-        {/* MAIN DASHBOARD */}
-        {authed && (
-          <main className="admin-dashboard flex min-h-0 flex-1 flex-col gap-4 md:flex-row md:gap-6">
-            <aside className="admin-chat-list flex min-h-[220px] w-full shrink-0 flex-col gap-3 rounded-3xl border border-slate-800/80 bg-[#151921] p-4 shadow-[0_24px_80px_rgba(0,0,0,0.55)] md:max-h-full md:w-[320px]">
-              <div className="flex items-center justify-between gap-3">
-                <div>
-                  <h2 className="text-sm font-semibold text-slate-50">Conversations</h2>
-                  <p className="mt-0.5 text-xs text-slate-400">Visitor messages in real time</p>
+            <div className="admin-auth-form-panel">
+              <div className="admin-auth-form-wrap">
+                <div className="admin-auth-mobile-brand">
+                  <span className="admin-brand-mark">
+                    <i className="fas fa-layer-group" aria-hidden="true" />
+                  </span>
+                  <span>WORKINEH<span className="admin-brand-dot">.</span></span>
                 </div>
-                <span className="rounded-full bg-slate-800/80 px-2.5 py-1 text-xs font-medium text-slate-300">
-                  {sessions.length}
+                <div className="admin-auth-heading">
+                  <span className="admin-auth-icon">
+                    <i className="fas fa-lock" aria-hidden="true" />
+                  </span>
+                  <span className="admin-eyebrow">SECURE ADMIN ACCESS</span>
+                  <h2>Welcome back</h2>
+                  <p>
+                    {authReady
+                      ? 'Enter your administrator password to open your inbox.'
+                      : 'Checking your secure session…'}
+                  </p>
+                </div>
+
+                <form
+                  className="admin-login-form"
+                  onSubmit={(event) => {
+                    event.preventDefault()
+                    void attemptLogin()
+                  }}
+                >
+                  <label htmlFor="admin-password">Administrator password</label>
+                  <div className="admin-password-field">
+                    <i className="fas fa-key" aria-hidden="true" />
+                    <input
+                      id="admin-password"
+                      type="password"
+                      value={passwordInput}
+                      autoComplete="current-password"
+                      onChange={(event) => {
+                        setPasswordInput(event.target.value)
+                        setLoginError('')
+                      }}
+                      disabled={!authReady || authBusy}
+                      placeholder="Enter your password"
+                    />
+                  </div>
+                  {loginError && (
+                    <p className="admin-form-error" role="alert">{loginError}</p>
+                  )}
+                  <button
+                    className="admin-login-button"
+                    type="submit"
+                    disabled={!authReady || authBusy || !passwordInput}
+                  >
+                    {authBusy ? (
+                      <>
+                        <i className="fas fa-spinner fa-spin" aria-hidden="true" />
+                        Signing in…
+                      </>
+                    ) : (
+                      <>
+                        Sign in to dashboard
+                        <i className="fas fa-arrow-right" aria-hidden="true" />
+                      </>
+                    )}
+                  </button>
+                </form>
+
+                <div className="admin-auth-security">
+                  <i className="fas fa-shield-alt" aria-hidden="true" />
+                  <span>Your password is verified securely by the backend and is never saved in this browser.</span>
+                </div>
+                <a className="admin-auth-back-link" href="/">
+                  <i className="fas fa-arrow-left" aria-hidden="true" />
+                  Back to portfolio
+                </a>
+              </div>
+              <footer className="admin-auth-footer">
+                <span>© {new Date().getFullYear()} Workineh Chalachew</span>
+                <ThemeToggle />
+              </footer>
+            </div>
+          </section>
+        </main>
+      ) : (
+        <div className="admin-dashboard">
+          <aside className="admin-sidebar">
+            <a className="admin-brand-lockup" href="/" aria-label="Workineh portfolio home">
+              <span className="admin-brand-mark">
+                <i className="fas fa-layer-group" aria-hidden="true" />
+              </span>
+              <span>WORKINEH<span className="admin-brand-dot">.</span></span>
+            </a>
+
+            <div className="admin-sidebar-label">WORKSPACE</div>
+            <nav className="admin-sidebar-nav" aria-label="Admin navigation">
+              <button
+                className={`admin-nav-item${activeView === 'inbox' ? ' active' : ''}`}
+                type="button"
+                aria-current={activeView === 'inbox' ? 'page' : undefined}
+                onClick={() => setActiveView('inbox')}
+              >
+                <i className="fas fa-inbox" aria-hidden="true" />
+                <span>Chat inbox</span>
+                <span className="admin-nav-count">{sessions.length}</span>
+              </button>
+              <button
+                className={`admin-nav-item${activeView === 'inquiries' ? ' active' : ''}`}
+                type="button"
+                aria-current={activeView === 'inquiries' ? 'page' : undefined}
+                onClick={() => setActiveView('inquiries')}
+              >
+                <i className="fas fa-envelope-open-text" aria-hidden="true" />
+                <span>Website inquiries</span>
+                <span className="admin-nav-count">{contactSubmissions.length}</span>
+              </button>
+            </nav>
+
+            <div className="admin-sidebar-note">
+              <span className={`admin-live-dot ${liveStatus}`} />
+              <div>
+                <strong>{liveStatus === 'live' ? 'Live updates active' : 'Reconnecting'}</strong>
+                <p>
+                  {liveStatus === 'live'
+                    ? 'Connected to your message service'
+                    : 'Restoring your live connection'}
+                </p>
+              </div>
+            </div>
+
+            <div className="admin-sidebar-bottom">
+              <div className="admin-user-card">
+                <span className="admin-user-avatar">WC</span>
+                <span className="admin-user-details">
+                  <strong>Workineh Chalachew</strong>
+                  <span>Administrator</span>
                 </span>
               </div>
+              <button className="admin-sidebar-logout" type="button" onClick={() => void logout()}>
+                <i className="fas fa-sign-out-alt" aria-hidden="true" />
+                Sign out
+              </button>
+            </div>
+          </aside>
 
-              <label className="relative block">
-                <span className="sr-only">Search conversations</span>
-                <i className="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-xs text-slate-500" aria-hidden="true"></i>
-                <input
-                  type="search"
-                  value={sessionSearch}
-                  onChange={(event) => setSessionSearch(event.target.value)}
-                  placeholder="Search name or message"
-                  className="w-full rounded-xl border border-slate-700/70 bg-[#0B0E14]/80 py-2.5 pl-9 pr-3 text-xs text-slate-50 outline-none placeholder:text-slate-500 focus:border-indigo-400/80 focus:ring-2 focus:ring-indigo-500/25"
-                />
-              </label>
-
-              <div className="admin-chat-list-items flex min-h-0 flex-1 flex-col gap-1.5 overflow-y-auto pr-1">
-                {filteredSessions.length === 0 ? (
-                  <div className="flex flex-1 flex-col items-center justify-center px-3 py-6 text-center">
-                    <i className="fas fa-comments mb-2 text-xl text-slate-600" aria-hidden="true"></i>
-                    <p className="text-xs text-slate-400">
-                      {sessions.length === 0
-                        ? 'No conversations yet.'
-                        : 'No conversations match your search.'}
-                    </p>
-                  </div>
-                ) : (
-                  filteredSessions.map((session) => {
-                    const isActive = session.sessionId === activeSessionId
-                    const initial = (session.name || 'U').trim().charAt(0).toUpperCase()
-                    return (
-                      <button
-                        key={session.sessionId}
-                        type="button"
-                        aria-current={isActive ? 'true' : undefined}
-                        onClick={() => setActiveSessionId(session.sessionId)}
-                        className={`admin-chat-item group flex w-full items-center gap-3 rounded-xl border px-3 py-3 text-left transition ${
-                          isActive
-                            ? 'border-indigo-400/50 bg-indigo-500/15'
-                            : 'border-transparent bg-[#0B0E14]/50 hover:border-slate-700/80 hover:bg-[#11151f]'
-                        }`}
-                      >
-                        <span
-                          className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-semibold ${
-                            isActive
-                              ? 'bg-indigo-500 text-white'
-                              : 'bg-slate-800 text-slate-200 group-hover:bg-slate-700'
-                          }`}
-                        >
-                          {initial || '?'}
-                        </span>
-                        <span className="min-w-0 flex-1">
-                          <span className="flex items-center justify-between gap-2">
-                            <span className="truncate text-sm font-semibold text-slate-50">
-                              {session.name}
-                            </span>
-                            <span className="shrink-0 text-[10px] text-slate-500">
-                              {session.lastTimestamp
-                                ? new Date(session.lastTimestamp).toLocaleTimeString([], {
-                                    hour: '2-digit',
-                                    minute: '2-digit',
-                                  })
-                                : ''}
-                            </span>
-                          </span>
-                          <span className="mt-1 block truncate text-xs text-slate-400">
-                            {session.lastMessage || 'No messages yet'}
-                          </span>
-                        </span>
-                      </button>
-                    )
-                  })
-                )}
+          <main className="admin-main">
+            <header className="admin-topbar">
+              <div className="admin-breadcrumb">
+                <span>Workspace</span>
+                <i className="fas fa-chevron-right" aria-hidden="true" />
+                <strong>{activeView === 'inbox' ? 'Chat inbox' : 'Website inquiries'}</strong>
               </div>
-            </aside>
-
-            <section className="admin-conversation relative flex min-h-[480px] min-w-0 flex-1 flex-col overflow-hidden rounded-3xl border border-slate-800/80 bg-[#121722]/95 shadow-[0_28px_90px_rgba(0,0,0,0.55)]">
-              <header className="flex items-center justify-between gap-3 border-b border-slate-800/80 px-4 py-4 md:px-6">
-                <div className="flex min-w-0 items-center gap-3">
-                  {activeSession ? (
-                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-indigo-500/20 text-sm font-semibold text-indigo-200">
-                      {(activeSession.name || 'U').trim().charAt(0).toUpperCase()}
-                    </span>
-                  ) : (
-                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-slate-800 text-slate-400">
-                      <i className="fas fa-comment-dots" aria-hidden="true"></i>
-                    </span>
-                  )}
-                  <div className="min-w-0">
-                    <h2 className="truncate text-sm font-semibold text-slate-50">
-                      {activeSession ? activeSession.name : 'Select a conversation'}
-                    </h2>
-                    <p className="truncate text-xs text-slate-400">
-                      {activeSession
-                        ? `Session ${activeSession.sessionId}`
-                        : 'Choose a visitor from the conversation list'}
-                    </p>
-                  </div>
-                </div>
+              <div className="admin-topbar-actions">
                 <button
+                  ref={passwordActionRef}
+                  className="admin-password-action"
                   type="button"
-                  onClick={logout}
-                  className="inline-flex shrink-0 items-center gap-2 rounded-xl border border-slate-700/80 px-3 py-2 text-xs font-semibold text-slate-200 transition hover:border-rose-400/60 hover:bg-rose-500/10 hover:text-rose-200"
+                  onClick={() => {
+                    setPasswordUpdateError('')
+                    setPasswordUpdateSuccess('')
+                    setPasswordDialogOpen(true)
+                  }}
                 >
-                  <i className="fas fa-sign-out-alt" aria-hidden="true"></i>
-                  <span className="hidden sm:inline">Log out</span>
+                  <i className="fas fa-key" aria-hidden="true" />
+                  <span>Change password</span>
                 </button>
-              </header>
+                <span className="admin-topbar-status">
+                  <span className={`admin-live-dot ${liveStatus}`} />
+                    {liveStatus === 'live'
+                      ? 'Live'
+                      : liveStatus === 'reconnecting'
+                        ? 'Reconnecting'
+                        : 'Connecting'}
+                </span>
+                <ThemeToggle />
+                <a className="admin-site-link" href="/">
+                  <i className="fas fa-external-link-alt" aria-hidden="true" />
+                  View portfolio
+                </a>
+              </div>
+            </header>
 
-              <div className="admin-message-list flex min-h-0 flex-1 flex-col overflow-y-auto px-4 py-5 md:px-6">
-                {messages.length === 0 ? (
-                  <div className="flex flex-1 flex-col items-center justify-center text-center">
-                    <span className="mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-800/80 text-slate-400">
-                      <i className="fas fa-comment-slash" aria-hidden="true"></i>
-                    </span>
-                    <p className="text-sm font-medium text-slate-300">
-                      {activeSession ? 'No messages in this conversation yet' : 'Your inbox is ready'}
-                    </p>
-                    <p className="mt-1 max-w-xs text-xs leading-relaxed text-slate-500">
-                      {activeSession
-                        ? 'New messages from this visitor will appear here.'
-                        : 'Select a conversation to view messages and reply.'}
-                    </p>
-                  </div>
-                ) : (
-                  <div className="flex flex-col gap-4" role="log" aria-live="polite">
-                    {messages.map((message) => {
-                      const fromAdmin = message.sender === 'admin'
-                      return (
-                        <div
-                          key={message.key}
-                          className={`flex ${fromAdmin ? 'justify-end' : 'justify-start'}`}
-                        >
-                          <div className="max-w-[88%] md:max-w-[72%]">
-                            <div
-                              className={`rounded-2xl px-4 py-3 text-sm leading-relaxed shadow-sm ${
-                                fromAdmin
-                                  ? 'bg-indigo-500 text-white'
-                                  : 'border border-slate-700/70 bg-[#22272E] text-slate-100'
-                              }`}
-                            >
-                              <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide opacity-75">
-                                {fromAdmin ? 'You' : activeSession?.name || 'Visitor'}
-                              </p>
-                              <p className="whitespace-pre-wrap break-words">{message.text}</p>
-                            </div>
-                            <p
-                              className={`mt-1 text-[10px] text-slate-500 ${
-                                fromAdmin ? 'text-right' : 'text-left'
-                              }`}
-                            >
-                              {message.timestamp ? formatDateTime(message.timestamp) : ''}
-                            </p>
-                          </div>
-                        </div>
-                      )
-                    })}
-                    <div ref={messagesEndRef} />
-                  </div>
-                )}
+            <div className="admin-content">
+              <div className="admin-page-heading">
+                <div>
+                  <span className="admin-eyebrow">
+                    {activeView === 'inbox' ? 'CUSTOMER MESSAGES' : 'PORTFOLIO CONTACT FORM'}
+                  </span>
+                  <h1>{activeView === 'inbox' ? 'Chat inbox' : 'Website inquiries'}</h1>
+                  <p>
+                    {activeView === 'inbox'
+                      ? 'Keep up with visitors and reply to their questions.'
+                      : 'Messages submitted through the portfolio contact form.'}
+                  </p>
+                </div>
+                <div className="admin-inbox-summary">
+                  <span className="admin-summary-icon">
+                    <i
+                      className={`fas ${activeView === 'inbox' ? 'fa-comments' : 'fa-envelope'}`}
+                      aria-hidden="true"
+                    />
+                  </span>
+                  <span>
+                    <strong>
+                      {activeView === 'inbox' ? sessions.length : contactSubmissions.length}
+                    </strong>
+                    <small>{activeView === 'inbox' ? 'conversations' : 'inquiries'}</small>
+                  </span>
+                </div>
               </div>
 
-              <form
-                className="admin-reply-form border-t border-slate-800/80 bg-[#0B0E14]/70 px-4 py-4 md:px-6"
-                onSubmit={(event) => {
-                  event.preventDefault()
-                  void sendReply()
+              {dashboardError && (
+                <p className="admin-dashboard-alert" role="alert">
+                  <i className="fas fa-exclamation-circle" aria-hidden="true" />
+                  {dashboardError}
+                </p>
+              )}
+
+              {activeView === 'inbox' ? (
+              <section className="admin-inbox-layout" id="inbox" aria-label="Message inbox">
+                <aside className="admin-inbox-panel">
+                  <div className="admin-panel-heading">
+                    <div>
+                      <h2>Conversations</h2>
+                      <p>Your visitor messages</p>
+                    </div>
+                    <span className="admin-panel-count">{sessions.length}</span>
+                  </div>
+
+                  <label className="admin-search">
+                    <span className="sr-only">Search conversations</span>
+                    <i className="fas fa-search" aria-hidden="true" />
+                    <input
+                      type="search"
+                      value={sessionSearch}
+                      onChange={(event) => setSessionSearch(event.target.value)}
+                      placeholder="Search conversations"
+                    />
+                    <kbd>/</kbd>
+                  </label>
+
+                  <div className="admin-conversation-list">
+                    {filteredSessions.length === 0 ? (
+                      <div className="admin-list-empty">
+                        <span className="admin-empty-icon">
+                          <i className="fas fa-comments" aria-hidden="true" />
+                        </span>
+                        <strong>
+                          {sessions.length === 0 ? 'Your inbox is empty' : 'No matches found'}
+                        </strong>
+                        <p>
+                          {sessions.length === 0
+                            ? 'Visitor conversations will show up here.'
+                            : 'Try a different name or message.'}
+                        </p>
+                      </div>
+                    ) : (
+                      filteredSessions.map((session) => {
+                        const isActive = session.sessionId === activeSessionId
+                        const initial = (session.name || 'G').trim().charAt(0).toUpperCase()
+                        return (
+                          <button
+                            className={`admin-conversation-item${isActive ? ' active' : ''}`}
+                            key={session.sessionId}
+                            type="button"
+                            aria-current={isActive ? 'true' : undefined}
+                            onClick={() => setActiveSessionId(session.sessionId)}
+                          >
+                            <span className="admin-visitor-avatar">{initial || 'G'}</span>
+                            <span className="admin-conversation-copy">
+                              <span className="admin-conversation-meta">
+                                <strong>{session.name}</strong>
+                                <time>
+                                  {session.lastTimestamp
+                                    ? new Date(session.lastTimestamp).toLocaleTimeString([], {
+                                        hour: '2-digit',
+                                        minute: '2-digit',
+                                      })
+                                    : ''}
+                                </time>
+                              </span>
+                              <span className="admin-conversation-preview">
+                                {session.lastMessage || 'No messages yet'}
+                              </span>
+                            </span>
+                          </button>
+                        )
+                      })
+                    )}
+                  </div>
+                  <div className="admin-inbox-footer">
+                    <i className="fas fa-lock" aria-hidden="true" />
+                    Conversations are private to your admin account
+                  </div>
+                </aside>
+
+                <section className="admin-thread-panel" aria-label="Selected conversation">
+                  <header className="admin-thread-header">
+                    <div className="admin-thread-identity">
+                      {activeSession ? (
+                        <span className="admin-visitor-avatar large">
+                          {(activeSession.name || 'G').trim().charAt(0).toUpperCase()}
+                        </span>
+                      ) : (
+                        <span className="admin-thread-placeholder">
+                          <i className="fas fa-comment-dots" aria-hidden="true" />
+                        </span>
+                      )}
+                      <div>
+                        <h2>{activeSession ? activeSession.name : 'Select a conversation'}</h2>
+                        <p>
+                          {activeSession
+                            ? 'Visitor'
+                            : 'Choose a visitor from the list to view messages'}
+                        </p>
+                      </div>
+                    </div>
+                    {activeSession && (
+                      <span className="admin-session-badge">
+                        <span className="admin-live-dot" />
+                        Active conversation
+                      </span>
+                    )}
+                  </header>
+
+                  <div className="admin-message-list">
+                    {messages.length === 0 ? (
+                      <div className="admin-thread-empty">
+                        <span className="admin-empty-icon">
+                          <i className="fas fa-comment-dots" aria-hidden="true" />
+                        </span>
+                        <strong>
+                          {activeSession ? 'Start the conversation' : 'Your inbox is ready'}
+                        </strong>
+                        <p>
+                          {activeSession
+                            ? 'Send a reply to this visitor using the message box below.'
+                            : 'Select a conversation to read messages and reply.'}
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="admin-message-log" role="log" aria-live="polite">
+                        {messages.map((message) => {
+                          const fromAdmin = message.sender === 'admin'
+                          return (
+                            <div
+                              className={`admin-message-row${fromAdmin ? ' from-admin' : ''}`}
+                              key={message.key}
+                            >
+                              <div className="admin-message-content">
+                                <div className="admin-message-bubble">
+                                  <p>{message.text}</p>
+                                </div>
+                                <div className="admin-message-meta">
+                                  <span>{fromAdmin ? 'You' : activeSession?.name || 'Visitor'}</span>
+                                  <time>{message.timestamp ? formatDateTime(message.timestamp) : ''}</time>
+                                </div>
+                              </div>
+                            </div>
+                          )
+                        })}
+                        <div ref={messagesEndRef} />
+                      </div>
+                    )}
+                  </div>
+
+                  <form
+                    className="admin-reply-form"
+                    onSubmit={(event) => {
+                      event.preventDefault()
+                      void sendReply()
+                    }}
+                  >
+                    {sendError && (
+                      <p className="admin-form-error" role="alert">{sendError}</p>
+                    )}
+                    <label className="sr-only" htmlFor="admin-reply">
+                      Write a reply
+                    </label>
+                    <div className="admin-composer">
+                      <input
+                        id="admin-reply"
+                        value={reply}
+                        maxLength={5000}
+                        onChange={(event) => {
+                          setReply(event.target.value)
+                          setSendError('')
+                        }}
+                        placeholder={
+                          activeSessionId ? 'Write a message…' : 'Select a conversation first'
+                        }
+                        disabled={!activeSessionId || sending}
+                      />
+                      <span className="admin-composer-hint">
+                        <i className="fas fa-reply" aria-hidden="true" />
+                        Replying as Workineh
+                      </span>
+                      <button
+                        className="admin-send-button"
+                        type="submit"
+                        disabled={!activeSessionId || sending || !reply.trim()}
+                        aria-label="Send reply"
+                      >
+                        <i
+                          className={`fas ${sending ? 'fa-spinner fa-spin' : 'fa-paper-plane'}`}
+                          aria-hidden="true"
+                        />
+                        <span>{sending ? 'Sending' : 'Send reply'}</span>
+                      </button>
+                    </div>
+                    <p className="admin-composer-caption">
+                      Press Enter to send your reply. Messages are delivered instantly.
+                    </p>
+                  </form>
+                </section>
+              </section>
+                ) : (
+                  <section className="admin-contact-layout" aria-label="Website inquiries">
+                    <aside className="admin-contact-list-panel">
+                      <div className="admin-panel-heading">
+                        <div>
+                          <h2>All inquiries</h2>
+                          <p>Contact form submissions</p>
+                        </div>
+                        <span className="admin-panel-count">{contactSubmissions.length}</span>
+                      </div>
+                      <div className="admin-contact-list">
+                        {contactLoading && contactSubmissions.length === 0 ? (
+                          <p className="admin-contact-empty" role="status">Loading inquiries…</p>
+                        ) : contactError ? (
+                          <p className="admin-contact-empty" role="alert">{contactError}</p>
+                        ) : contactSubmissions.length === 0 ? (
+                          <div className="admin-contact-empty">
+                            <span className="admin-empty-icon">
+                              <i className="fas fa-envelope" aria-hidden="true" />
+                            </span>
+                            <strong>No inquiries yet</strong>
+                            <p>Messages sent from the portfolio will appear here.</p>
+                          </div>
+                        ) : (
+                          contactSubmissions.map((submission) => {
+                            const isActive = submission.id === activeContactId
+                            return (
+                              <button
+                                className={`admin-contact-item${isActive ? ' active' : ''}`}
+                                key={submission.id}
+                                type="button"
+                                aria-current={isActive ? 'true' : undefined}
+                                onClick={() => setActiveContactId(submission.id)}
+                              >
+                                <span className="admin-contact-avatar">
+                                  {(submission.name || '?').trim().charAt(0).toUpperCase()}
+                                </span>
+                                <span className="admin-contact-copy">
+                                  <span className="admin-contact-meta">
+                                    <strong>{submission.name}</strong>
+                                    <time>{formatDateTime(submission.createdAt)}</time>
+                                  </span>
+                                  <strong className="admin-contact-subject">{submission.subject}</strong>
+                                  <span className="admin-contact-preview">{submission.message}</span>
+                                </span>
+                              </button>
+                            )
+                          })
+                        )}
+                      </div>
+                    </aside>
+
+                    <article className="admin-contact-detail">
+                      {activeContact ? (
+                        <>
+                          <header className="admin-contact-detail-header">
+                            <div>
+                              <span className="admin-eyebrow">INQUIRY DETAILS</span>
+                              <h2>{activeContact.subject}</h2>
+                            </div>
+                            <span className={`admin-delivery-status ${activeContact.emailStatus}`}>
+                              <i
+                                className={`fas ${
+                                  activeContact.emailStatus === 'sent'
+                                    ? 'fa-check-circle'
+                                    : activeContact.emailStatus === 'failed'
+                                      ? 'fa-exclamation-circle'
+                                      : 'fa-info-circle'
+                                }`}
+                                aria-hidden="true"
+                              />
+                              {activeContact.emailStatus === 'sent'
+                                ? 'Email sent'
+                                : activeContact.emailStatus === 'failed'
+                                  ? 'Email failed'
+                                  : 'Email not configured'}
+                            </span>
+                          </header>
+                          <div className="admin-contact-sender">
+                            <span className="admin-contact-avatar large">
+                              {(activeContact.name || '?').trim().charAt(0).toUpperCase()}
+                            </span>
+                            <div>
+                              <strong>{activeContact.name}</strong>
+                              <a href={`mailto:${activeContact.email}`}>{activeContact.email}</a>
+                            </div>
+                            <time>{formatDateTime(activeContact.createdAt)}</time>
+                          </div>
+                          <div className="admin-contact-message">
+                            <p>{activeContact.message}</p>
+                          </div>
+                          {activeContact.emailError && (
+                            <p className="admin-contact-email-error">
+                              Delivery detail: {activeContact.emailError}
+                            </p>
+                          )}
+                          {activeContact.emailStatus === 'not_configured' && (
+                            <p className="admin-contact-email-error">
+                              Configure SMTP in the backend environment to receive email notifications.
+                            </p>
+                          )}
+                          <a
+                            className="admin-contact-reply"
+                            href={`mailto:${activeContact.email}?subject=${encodeURIComponent(`Re: ${activeContact.subject}`)}`}
+                          >
+                            <i className="fas fa-reply" aria-hidden="true" />
+                            Reply by email
+                          </a>
+                        </>
+                      ) : (
+                        <div className="admin-contact-empty">
+                          <span className="admin-empty-icon">
+                            <i className="fas fa-envelope-open" aria-hidden="true" />
+                          </span>
+                          <strong>Select an inquiry</strong>
+                          <p>Choose a message from the list to read the full details.</p>
+                        </div>
+                      )}
+                    </article>
+                  </section>
+                )}
+            </div>
+          </main>
+          {passwordDialogOpen && (
+            <div
+              className="admin-modal-backdrop"
+              onMouseDown={(event) => {
+                if (event.target === event.currentTarget) closePasswordDialog()
+              }}
+            >
+              <section
+                className="admin-password-dialog"
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="admin-password-title"
+                aria-describedby="admin-password-description"
+                onKeyDown={(event) => {
+                  if (event.key !== 'Tab') return
+                  const controls = event.currentTarget.querySelectorAll(
+                    'button:not(:disabled), input:not(:disabled)',
+                  )
+                  const first = controls[0]
+                  const last = controls[controls.length - 1]
+                  if (event.shiftKey && document.activeElement === first) {
+                    event.preventDefault()
+                    last?.focus()
+                  } else if (!event.shiftKey && document.activeElement === last) {
+                    event.preventDefault()
+                    first?.focus()
+                  }
                 }}
               >
-                <label className="sr-only" htmlFor="admin-reply">
-                  Write a reply
-                </label>
-                <div className="flex items-center gap-2">
-                  <input
-                    id="admin-reply"
-                    value={reply}
-                    onChange={(event) => {
-                      setReply(event.target.value)
-                      setSendError('')
-                    }}
-                    className="min-w-0 flex-1 rounded-xl border border-slate-700/70 bg-[#151921] px-4 py-3 text-sm text-slate-50 outline-none placeholder:text-slate-500 focus:border-indigo-400/80 focus:ring-2 focus:ring-indigo-500/25 disabled:cursor-not-allowed disabled:opacity-60"
-                    placeholder={activeSessionId ? 'Write a reply…' : 'Select a conversation first'}
-                    disabled={!activeSessionId || sending}
-                  />
+                <header className="admin-password-dialog-header">
+                  <span className="admin-auth-icon">
+                    <i className="fas fa-shield-alt" aria-hidden="true" />
+                  </span>
                   <button
-                    type="submit"
-                    disabled={!activeSessionId || sending || !reply.trim()}
-                    className="inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-xl bg-indigo-500 px-4 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-400 disabled:cursor-not-allowed disabled:opacity-50"
-                    aria-label="Send reply"
+                    className="admin-dialog-close"
+                    type="button"
+                    onClick={closePasswordDialog}
+                    aria-label="Close change password dialog"
                   >
-                    <i className={`fas ${sending ? 'fa-spinner fa-spin' : 'fa-paper-plane'}`} aria-hidden="true"></i>
-                    <span className="hidden sm:inline">{sending ? 'Sending' : 'Send'}</span>
+                    <i className="fas fa-times" aria-hidden="true" />
                   </button>
-                </div>
-                {sendError && (
-                  <p className="mt-2 text-xs font-medium text-rose-300" role="alert">
-                    {sendError}
-                  </p>
-                )}
-                <p className="mt-2 text-[11px] text-slate-500">
-                  Replies are sent to the selected visitor in real time.
+                </header>
+                <h2 id="admin-password-title">Change your password</h2>
+                <p id="admin-password-description">
+                  Choose a new password with at least 12 characters. Your current session will remain active.
                 </p>
-              </form>
-            </section>
-          </main>
-        )}
-      </div>
+                <form className="admin-password-form" onSubmit={updatePassword}>
+                  <label htmlFor="current-admin-password">Current password</label>
+                  <input
+                    ref={currentPasswordInputRef}
+                    id="current-admin-password"
+                    type="password"
+                    autoComplete="current-password"
+                    value={currentPassword}
+                    onChange={(event) => setCurrentPassword(event.target.value)}
+                    required
+                    disabled={passwordUpdateBusy || Boolean(passwordUpdateSuccess)}
+                  />
+                  <label htmlFor="new-admin-password">New password</label>
+                  <input
+                    id="new-admin-password"
+                    type="password"
+                    autoComplete="new-password"
+                    minLength={12}
+                    maxLength={1024}
+                    value={newPassword}
+                    onChange={(event) => setNewPassword(event.target.value)}
+                    required
+                    disabled={passwordUpdateBusy || Boolean(passwordUpdateSuccess)}
+                  />
+                  <label htmlFor="confirm-admin-password">Confirm new password</label>
+                  <input
+                    id="confirm-admin-password"
+                    type="password"
+                    autoComplete="new-password"
+                    minLength={12}
+                    maxLength={1024}
+                    value={confirmPassword}
+                    onChange={(event) => setConfirmPassword(event.target.value)}
+                    required
+                    disabled={passwordUpdateBusy || Boolean(passwordUpdateSuccess)}
+                  />
+                  {passwordUpdateError && (
+                    <p className="admin-form-error" role="alert">{passwordUpdateError}</p>
+                  )}
+                  {passwordUpdateSuccess && (
+                    <p className="admin-form-success" role="status">{passwordUpdateSuccess}</p>
+                  )}
+                  <div className="admin-password-dialog-actions">
+                    <button
+                      className="admin-dialog-cancel"
+                      type="button"
+                      onClick={closePasswordDialog}
+                    >
+                      {passwordUpdateSuccess ? 'Done' : 'Cancel'}
+                    </button>
+                    {!passwordUpdateSuccess && (
+                      <button
+                        className="admin-login-button"
+                        type="submit"
+                        disabled={
+                          passwordUpdateBusy ||
+                          !currentPassword ||
+                          newPassword.length < 12 ||
+                          !confirmPassword
+                        }
+                      >
+                        {passwordUpdateBusy ? 'Updating…' : 'Update password'}
+                      </button>
+                    )}
+                  </div>
+                </form>
+              </section>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   )
 }

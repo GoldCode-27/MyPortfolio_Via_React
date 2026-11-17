@@ -1,6 +1,5 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
-import { onValue, push, ref, set, query, limitToLast } from 'firebase/database'
-import { db } from '../firebase'
+import { useEffect, useRef, useState } from 'react'
+import { apiRequest } from '../api.js'
 
 function getStoredValue(key) {
   try {
@@ -42,12 +41,6 @@ function saveVisitorName(name) {
   storeValue('portfolio_chat_name', name)
 }
 
-function notifyNewVisitorMessage(sessionId, message) {
-  // Placeholder hook for AfroMessage/SMS integration
-  // eslint-disable-next-line no-console
-  console.log('[sms-hook] New visitor message:', { sessionId, message })
-}
-
 function formatTime(ts) {
   if (!ts) return ''
   const d = new Date(ts)
@@ -61,57 +54,64 @@ export default function Chat() {
   const [text, setText] = useState('')
   const [messages, setMessages] = useState([])
   const [sending, setSending] = useState(false)
+  const [chatError, setChatError] = useState('')
 
-  const sessionIdRef = useRef(null)
-  const lastSeenKeyRef = useRef(null)
+  const [sessionId] = useState(getOrCreateSessionId)
   const listEndRef = useRef(null)
 
-  const messagesRef = useMemo(() => {
-    const sessionId = getOrCreateSessionId()
-    sessionIdRef.current = sessionId
-    return ref(db, `chats/${sessionId}/messages`)
-  }, [])
-
-  const profileRef = useMemo(() => {
-    const sessionId = sessionIdRef.current || getOrCreateSessionId()
-    return ref(db, `chats/${sessionId}/profile`)
-  }, [])
-
   useEffect(() => {
-    const q = query(messagesRef, limitToLast(50))
-    const unsubscribe = onValue(q, (snap) => {
-      const val = snap.val() || {}
-      const next = Object.entries(val).map(([key, m]) => ({ key, ...m }))
-      next.sort((a, b) => (a.timestamp ?? 0) - (b.timestamp ?? 0))
-      setMessages(next)
-
-      // SMS hook placeholder: trigger when a NEW visitor message arrives
-      const last = next[next.length - 1]
-      if (
-        last?.key &&
-        lastSeenKeyRef.current &&
-        last.key !== lastSeenKeyRef.current &&
-        last.sender === 'visitor'
-      ) {
-        const sessionId = sessionIdRef.current
-        if (sessionId) notifyNewVisitorMessage(sessionId, last)
+    let active = true
+    const messagesPath = `/chat/${encodeURIComponent(sessionId)}/messages`
+    const loadMessages = async () => {
+      try {
+        const { messages: nextMessages } = await apiRequest(messagesPath)
+        if (active) {
+          setMessages(nextMessages)
+          setChatError('')
+        }
+      } catch (error) {
+        if (active) {
+          setChatError(error instanceof Error ? error.message : 'Could not load chat messages.')
+        }
       }
-      if (last?.key) lastSeenKeyRef.current = last.key
-    })
+    }
 
-    return () => unsubscribe()
-  }, [messagesRef])
+    void loadMessages()
+    const eventSource = new EventSource(
+      `/api/chat/${encodeURIComponent(sessionId)}/events`,
+    )
+    eventSource.addEventListener('ready', () => void loadMessages())
+    eventSource.addEventListener('chat-message', (event) => {
+      const message = JSON.parse(event.data)
+      setMessages((current) =>
+        current.some((item) => item.key === message.key)
+          ? current
+          : [...current, message].sort((a, b) => a.timestamp - b.timestamp),
+      )
+      setChatError('')
+    })
+    eventSource.onopen = () => setChatError('')
+    eventSource.onerror = () => {
+      if (active) setChatError('Chat connection interrupted. Reconnecting…')
+    }
+
+    return () => {
+      active = false
+      eventSource.close()
+    }
+  }, [sessionId])
 
   useEffect(() => {
-    // Keep a profile node for admin visibility (name, lastSeen)
-    const sessionId = sessionIdRef.current
-    if (!sessionId) return
-    void set(profileRef, {
-      name: name?.trim() || null,
-      sessionId,
-      updatedAt: Date.now(),
-    })
-  }, [name, profileRef])
+    const timeout = window.setTimeout(() => {
+      apiRequest(`/chat/${encodeURIComponent(sessionId)}/profile`, {
+        method: 'PUT',
+        body: JSON.stringify({ name: name?.trim() || null }),
+      }).catch((error) => {
+        setChatError(error instanceof Error ? error.message : 'Could not save your name.')
+      })
+    }, 250)
+    return () => window.clearTimeout(timeout)
+  }, [name, sessionId])
 
   useEffect(() => {
     if (!open) return
@@ -124,13 +124,22 @@ export default function Chat() {
 
     setSending(true)
     try {
-      await push(messagesRef, {
-        sender: 'visitor',
-        name: name?.trim() || null,
-        text: trimmed,
-        timestamp: Date.now(),
-      })
+      const { message } = await apiRequest(
+        `/chat/${encodeURIComponent(sessionId)}/messages`,
+        {
+          method: 'POST',
+          body: JSON.stringify({ name: name?.trim() || null, text: trimmed }),
+        },
+      )
+      setMessages((current) =>
+        current.some((item) => item.key === message.key)
+          ? current
+          : [...current, message].sort((a, b) => a.timestamp - b.timestamp),
+      )
       setText('')
+      setChatError('')
+    } catch (error) {
+      setChatError(error instanceof Error ? error.message : 'Could not send your message.')
     } finally {
       setSending(false)
     }
@@ -204,6 +213,7 @@ export default function Chat() {
                 <label className="block text-[11px] font-medium text-slate-400">Your name (optional)</label>
                 <input
                   value={name}
+                  maxLength={100}
                   onChange={(e) => {
                     setName(e.target.value)
                     saveVisitorName(e.target.value)
@@ -217,6 +227,11 @@ export default function Chat() {
             {/* Messages */}
             <div className="chat-messages flex-1 overflow-y-auto bg-[radial-gradient(circle_at_top,_rgba(30,64,175,0.18)_0,_transparent_55%)] px-3 py-3 sm:px-4 sm:py-4">
               <div className="flex min-h-full flex-col justify-end">
+                {chatError && (
+                  <p className="mb-3 rounded-xl border border-rose-400/30 bg-rose-950/40 p-2 text-xs text-rose-200" role="alert">
+                    {chatError}
+                  </p>
+                )}
                 {messages.length === 0 ? (
                   <div className="chat-empty mt-4 rounded-2xl border border-slate-800/80 bg-[#111827]/80 p-3 text-xs text-slate-400">
                     No messages yet. Say hi, and I&apos;ll respond as soon as I can.
@@ -259,6 +274,7 @@ export default function Chat() {
                 <div className="relative flex-1">
                   <input
                     value={text}
+                    maxLength={5000}
                     onChange={(e) => setText(e.target.value)}
                     onKeyDown={(e) => {
                       if (e.key === 'Enter') sendMessage()
