@@ -58,6 +58,8 @@ export default function Chat() {
 
   const [sessionId] = useState(getOrCreateSessionId)
   const listEndRef = useRef(null)
+  const launcherRef = useRef(null)
+  const messageInputRef = useRef(null)
 
   useEffect(() => {
     let active = true
@@ -118,6 +120,20 @@ export default function Chat() {
     listEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages, open])
 
+  useEffect(() => {
+    if (!open) return
+    const launcher = launcherRef.current
+    messageInputRef.current?.focus()
+    const closeOnEscape = (event) => {
+      if (event.key === 'Escape') setOpen(false)
+    }
+    window.addEventListener('keydown', closeOnEscape)
+    return () => {
+      window.removeEventListener('keydown', closeOnEscape)
+      launcher?.focus()
+    }
+  }, [open])
+
   const sendMessage = async () => {
     const trimmed = text.trim()
     if (!trimmed) return
@@ -149,12 +165,14 @@ export default function Chat() {
 
   return (
     <>
-      {/* Floating launcher */}
       <button
+        ref={launcherRef}
         type="button"
-        onClick={() => setOpen(true)}
-        className="fixed bottom-5 right-5 z-[99999] inline-flex h-12 w-12 items-center justify-center rounded-full bg-indigo-500/90 text-white shadow-xl shadow-indigo-500/40 ring-1 ring-indigo-300/60 backdrop-blur-md transition-transform duration-300 hover:scale-105 hover:bg-indigo-400 focus:outline-none focus-visible:ring-4 focus-visible:ring-indigo-400/60"
-        aria-label="Open chat"
+        onClick={() => setOpen((current) => !current)}
+        className={`chat-launcher${open ? ' is-open' : ''}`}
+        aria-label={open ? 'Close chat' : 'Open chat'}
+        aria-expanded={open}
+        aria-controls="portfolio-chat-dialog"
       >
         <svg
           xmlns="http://www.w3.org/2000/svg"
@@ -173,120 +191,129 @@ export default function Chat() {
         </svg>
       </button>
 
-      {/* Chat window */}
       {open && (
-        <div className="fixed inset-0 z-[99998] flex items-end justify-end bg-transparent sm:items-center sm:justify-end">
-          {/* Backdrop click to close on mobile */}
+        <div className="chat-overlay">
           <button
             type="button"
-            className="absolute inset-0 block cursor-default bg-black/20 sm:bg-transparent"
-            aria-hidden="true"
+            className="chat-backdrop"
+            aria-label="Close chat window"
             onClick={() => setOpen(false)}
           />
 
-          <div className="chat-window relative bottom-20 right-4 flex w-[94vw] max-w-sm origin-bottom-right scale-100 flex-col rounded-3xl border border-slate-800/80 bg-[#0B0E14]/95 text-slate-50 shadow-[0_24px_80px_rgba(0,0,0,0.95)] backdrop-blur-md transition-all duration-300 max-h-[500px] sm:bottom-24">
-            {/* Header */}
-            <div className="chat-window-header flex items-center justify-between rounded-t-3xl bg-[#111827] px-4 py-3 sm:px-5">
-              <div className="min-w-0">
-                <div className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
-                  Workineh&apos;s Portfolio
-                </div>
-                {hasName ? (
-                  <div className="mt-0.5 text-xs text-slate-300">Welcome, {name.trim()}</div>
-                ) : (
-                  <div className="mt-0.5 text-xs text-slate-400">Ask anything about my work.</div>
-                )}
+          <section
+            id="portfolio-chat-dialog"
+            className="chat-window"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="chat-title"
+            aria-describedby="chat-description"
+          >
+            <header className="chat-window-header">
+              <span className="chat-avatar" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+                  <path d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z" />
+                  <path d="M4.5 20a7.5 7.5 0 0 1 15 0" />
+                </svg>
+              </span>
+              <div className="chat-heading">
+                <h2 id="chat-title">Workineh&apos;s Portfolio</h2>
+                <p id="chat-description">
+                  <span className="chat-status-dot" aria-hidden="true" />
+                  {hasName ? `Hi ${name.trim()}, ask me about my work.` : 'Ask me about my work and projects.'}
+                </p>
               </div>
               <button
                 type="button"
                 onClick={() => setOpen(false)}
-                className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-slate-800/70 text-slate-200 shadow-sm transition hover:bg-slate-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-400/70"
+                className="chat-close"
                 aria-label="Close chat"
               >
-                <span className="text-base leading-none">&times;</span>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="m18 6-12 12M6 6l12 12" />
+                </svg>
               </button>
-            </div>
+            </header>
 
-            {/* Name field (only if not set) */}
             {!hasName && (
-              <div className="chat-name-panel border-b border-slate-800/80 bg-[#0B0E14] px-4 py-2.5 text-xs sm:px-5">
-                <label className="block text-[11px] font-medium text-slate-400">Your name (optional)</label>
+              <div className="chat-name-panel">
+                <label htmlFor="chat-visitor-name">Your name <span>(optional)</span></label>
                 <input
+                  id="chat-visitor-name"
                   value={name}
                   maxLength={100}
-                  onChange={(e) => {
-                    setName(e.target.value)
-                    saveVisitorName(e.target.value)
+                  onChange={(event) => {
+                    setName(event.target.value)
+                    saveVisitorName(event.target.value)
                   }}
-                  className="mt-1 w-full rounded-2xl border border-slate-700/70 bg-[#111827] px-3 py-1.5 text-xs text-slate-50 outline-none ring-0 placeholder:text-slate-500 focus:border-indigo-400/80 focus:ring-2 focus:ring-indigo-500/25"
-                  placeholder="e.g. Workineh"
+                  placeholder="How should I address you?"
+                  autoComplete="name"
                 />
               </div>
             )}
 
-            {/* Messages */}
-            <div className="chat-messages flex-1 overflow-y-auto bg-[radial-gradient(circle_at_top,_rgba(30,64,175,0.18)_0,_transparent_55%)] px-3 py-3 sm:px-4 sm:py-4">
-              <div className="flex min-h-full flex-col justify-end">
-                {chatError && (
-                  <p className="mb-3 rounded-xl border border-rose-400/30 bg-rose-950/40 p-2 text-xs text-rose-200" role="alert">
-                    {chatError}
-                  </p>
-                )}
-                {messages.length === 0 ? (
-                  <div className="chat-empty mt-4 rounded-2xl border border-slate-800/80 bg-[#111827]/80 p-3 text-xs text-slate-400">
-                    No messages yet. Say hi, and I&apos;ll respond as soon as I can.
-                  </div>
-                ) : (
-                  <div className="space-y-2.5">
-                    {messages.map((m) => {
-                    const fromVisitor = m.sender === 'visitor'
-                    const bubbleBase =
-                      'max-w-[85%] rounded-2xl px-3 py-2 text-[13px] leading-relaxed shadow-sm transition-all duration-300'
-                    const bubbleClasses = fromVisitor
-                      ? 'bg-slate-200 text-slate-900 rounded-tr-none ml-auto'
-                      : 'bg-indigo-600 text-white rounded-tl-none mr-auto'
+            <div className="chat-messages" role="log" aria-live="polite" aria-relevant="additions text">
+              {chatError && <p className="chat-error" role="alert">{chatError}</p>}
+              {messages.length === 0 ? (
+                <div className="chat-empty">
+                  <span className="chat-empty-icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7">
+                      <path d="M21 11.5a8.4 8.4 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.4 8.4 0 0 1-3.8-.9L3 21l1.9-5.7a8.4 8.4 0 0 1-.9-3.8A8.5 8.5 0 0 1 8.7 3.9 8.4 8.4 0 0 1 12.5 3h.5a8.5 8.5 0 0 1 8 8.5Z" />
+                    </svg>
+                  </span>
+                  <strong>Start a conversation</strong>
+                  <p>Send a message about my projects, skills, or experience.</p>
+                </div>
+              ) : (
+                <div className="chat-message-list">
+                  {messages.map((message) => {
+                    const fromVisitor = message.sender === 'visitor'
                     return (
-                      <div key={m.key} className={`flex ${fromVisitor ? 'justify-end' : 'justify-start'}`}>
-                        <div className="flex max-w-full flex-col">
-                          <div className={`${bubbleBase} ${bubbleClasses}`}>
-                            <div className="whitespace-pre-wrap break-words">{m.text}</div>
+                      <div
+                        key={message.key}
+                        className={`chat-message-row${fromVisitor ? ' from-visitor' : ''}`}
+                      >
+                        <div className="chat-message-content">
+                          <span className="chat-sender">{fromVisitor ? 'You' : 'Workineh'}</span>
+                          <div className="chat-message-bubble">
+                            <p>{message.text}</p>
                           </div>
-                          <div
-                            className={`mt-0.5 text-[10px] ${
-                              fromVisitor ? 'text-slate-500 text-right' : 'text-slate-300 text-left opacity-80'
-                            }`}
-                          >
-                            {formatTime(m.timestamp)}
-                          </div>
+                          <time className="chat-message-time">
+                            {formatTime(message.timestamp)}
+                          </time>
                         </div>
                       </div>
                     )
-                    })}
-                    <div ref={listEndRef} />
-                  </div>
-                )}
-              </div>
+                  })}
+                  <div ref={listEndRef} />
+                </div>
+              )}
             </div>
 
-            {/* Input */}
-            <div className="chat-input-area border-t border-slate-800/80 bg-[#0B0E14]/95 px-3 py-2.5 backdrop-blur-md sm:px-4">
-              <div className="flex items-center gap-2">
-                <div className="relative flex-1">
+            <form
+              className="chat-input-area"
+              onSubmit={(event) => {
+                event.preventDefault()
+                void sendMessage()
+              }}
+            >
+              <label className="chat-input-label" htmlFor="chat-message-input">
+                Message
+              </label>
+              <div className="chat-composer">
                   <input
+                    ref={messageInputRef}
+                    id="chat-message-input"
                     value={text}
                     maxLength={5000}
-                    onChange={(e) => setText(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') sendMessage()
-                    }}
-                    className="w-full rounded-full bg-[#111827] px-3.5 py-2 pr-9 text-xs text-slate-50 shadow-sm shadow-black/40 outline-none ring-0 placeholder:text-slate-500 focus:bg-[#111827] focus:ring-2 focus:ring-indigo-500/40"
-                    placeholder="Type a message…"
+                    onChange={(event) => setText(event.target.value)}
+                    className="chat-message-input"
+                    placeholder="Write your message…"
+                    autoComplete="off"
                   />
                   <button
-                    type="button"
+                    type="submit"
                     disabled={sending || !text.trim()}
-                    onClick={sendMessage}
-                    className="absolute inset-y-0 right-1.5 my-1.5 inline-flex h-7 w-7 items-center justify-center rounded-full bg-indigo-500 text-white shadow-sm shadow-indigo-500/40 transition hover:bg-indigo-400 disabled:cursor-not-allowed disabled:opacity-60"
+                    className="chat-send-button"
                     aria-label="Send message"
                   >
                     <svg
@@ -303,10 +330,12 @@ export default function Chat() {
                       <path d="M22 2 15 22 11 13 2 9 22 2z" />
                     </svg>
                   </button>
-                </div>
               </div>
-            </div>
-          </div>
+              <p className="chat-composer-hint">
+                {sending ? 'Sending your message…' : 'Press Enter to send'}
+              </p>
+            </form>
+          </section>
         </div>
       )}
     </>
