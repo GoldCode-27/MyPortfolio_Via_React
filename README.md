@@ -31,7 +31,7 @@ Firebase has been removed. Chat messages and visitor profiles are stored in MySQ
 
 1. Create a MySQL database and user (or use an existing local database).
 2. Copy `backend/.env.example` to `backend/.env` (PowerShell: `Copy-Item backend\.env.example backend\.env`).
-3. Set `MYSQL_HOST`, `MYSQL_PORT`, `MYSQL_DATABASE`, `MYSQL_USER`, and `MYSQL_PASSWORD` in `backend/.env`. For the first startup only, set `ADMIN_PASSWORD` to a unique password with at least 12 characters; it is stored as a salted hash in MySQL. Remove `ADMIN_PASSWORD` from the environment after the account has been initialized. The admin can change the password later in the dashboard. Keep `.env` private; it is ignored by Git.
+3. Set `MYSQL_HOST`, `MYSQL_PORT`, `MYSQL_DATABASE`, `MYSQL_USER`, and `MYSQL_PASSWORD` in `backend/.env`. For the first startup only, set `ADMIN_PASSWORD` to a unique password with at least 12 characters and no more than 72 UTF-8 bytes; the backend hashes it with bcrypt before storing it in MySQL. Remove `ADMIN_PASSWORD` from the environment after the account has been initialized. The admin can change the password later in the dashboard. Keep `.env` private; it is ignored by Git.
 4. Apply the schema with your MySQL client:
 
    ```powershell
@@ -77,7 +77,7 @@ Express serves the built frontend from `frontend/dist` and the API from the same
 ## Chat and admin security
 
 - Visitor chat is public; administrators authenticate using the backend-only `ADMIN_PASSWORD`.
-- The initial admin password is bootstrap-only. MySQL stores a salted password hash, never the plaintext password.
+- The initial admin password is bootstrap-only. MySQL stores a bcrypt hash, never the plaintext password. Existing scrypt hashes are upgraded to bcrypt after a successful sign-in.
 - Admins can update their password from the dashboard. The current session remains active; other admin sessions are revoked.
 - Admin sessions use random, HttpOnly, SameSite cookies and are stored as hashes in MySQL.
 - Set `NODE_ENV=production` behind HTTPS so admin cookies are marked Secure.

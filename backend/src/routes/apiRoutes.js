@@ -133,10 +133,10 @@ export function createApiRouter({ pool, events, auth, config, chatService, email
       if (
         typeof newPassword !== 'string' ||
         newPassword.length < 12 ||
-        newPassword.length > 1024
+        Buffer.byteLength(newPassword, 'utf8') > 72
       ) {
         return response.status(400).json({
-          error: 'Your new password must be between 12 and 1024 characters.',
+          error: 'Your new password must be at least 12 characters and no more than 72 UTF-8 bytes.',
         })
       }
       if (currentPassword === newPassword) {

@@ -1,3 +1,4 @@
+import bcrypt from 'bcrypt'
 import { createHash, randomBytes, scrypt, timingSafeEqual } from 'node:crypto'
 import { promisify } from 'node:util'
 
@@ -6,6 +7,8 @@ const SESSION_DURATION_MS = 12 * 60 * 60 * 1000
 const COOKIE_NAME = 'portfolio_admin_session'
 const CREDENTIAL_ID = 1
 const PASSWORD_HASH_LENGTH = 64
+const BCRYPT_COST = 12
+const BCRYPT_MAX_BYTES = 72
 
 function hashToken(token) {
   return createHash('sha256').update(token).digest('hex')
@@ -36,10 +39,11 @@ function passwordMatches(candidateHash, storedHash) {
   )
 }
 
-async function createPasswordRecord(password) {
-  const salt = randomBytes(16)
-  const hash = await derivePasswordHash(password, salt)
-  return { passwordHash: hash.toString('hex'), passwordSalt: salt.toString('hex') }
+async function createPasswordHash(password) {
+  if (Buffer.byteLength(password, 'utf8') > BCRYPT_MAX_BYTES) {
+    throw new Error('Administrator passwords must be 72 UTF-8 bytes or fewer.')
+  }
+  return bcrypt.hash(password, BCRYPT_COST)
 }
 
 export async function initializeAdminCredentials(pool, bootstrapPassword) {
@@ -55,19 +59,19 @@ export async function initializeAdminCredentials(pool, bootstrapPassword) {
   }
   if (
     bootstrapPassword.length < 12 ||
-    bootstrapPassword.length > 1024 ||
+    Buffer.byteLength(bootstrapPassword, 'utf8') > BCRYPT_MAX_BYTES ||
     /replace_with|change_me|your_password/i.test(bootstrapPassword)
   ) {
     throw new Error(
-      'ADMIN_PASSWORD must be a unique value between 12 and 1024 characters to bootstrap the admin account.',
+      'ADMIN_PASSWORD must be a unique value between 12 characters and 72 UTF-8 bytes to bootstrap the admin account.',
     )
   }
 
-  const { passwordHash, passwordSalt } = await createPasswordRecord(bootstrapPassword)
+  const passwordHash = await createPasswordHash(bootstrapPassword)
   await pool.execute(
     `INSERT IGNORE INTO admin_credentials (id, password_hash, password_salt, updated_at)
      VALUES (?, ?, ?, ?)`,
-    [CREDENTIAL_ID, passwordHash, passwordSalt, Date.now()],
+    [CREDENTIAL_ID, passwordHash, '', Date.now()],
   )
 
   const [created] = await pool.execute(
@@ -89,9 +93,25 @@ export function createAdminAuth({ pool, secureCookie }) {
       throw new Error('The administrator credential has not been initialized in MySQL.')
     }
 
-    const salt = Buffer.from(rows[0].password_salt, 'hex')
+    const { password_hash: storedHash, password_salt: storedSalt } = rows[0]
+    if (storedHash.startsWith('$2')) {
+      if (Buffer.byteLength(candidate, 'utf8') > BCRYPT_MAX_BYTES) return false
+      return bcrypt.compare(candidate, storedHash)
+    }
+
+    const salt = Buffer.from(storedSalt, 'hex')
     const candidateHash = await derivePasswordHash(candidate, salt)
-    return passwordMatches(candidateHash, rows[0].password_hash)
+    const matched = passwordMatches(candidateHash, storedHash)
+    if (matched && Buffer.byteLength(candidate, 'utf8') <= BCRYPT_MAX_BYTES) {
+      const bcryptHash = await createPasswordHash(candidate)
+      await executor.execute(
+        `UPDATE admin_credentials
+         SET password_hash = ?, password_salt = '', updated_at = ?
+         WHERE id = ?`,
+        [bcryptHash, Date.now(), CREDENTIAL_ID],
+      )
+    }
+    return matched
   }
 
   async function login(candidate) {
@@ -117,12 +137,12 @@ export function createAdminAuth({ pool, secureCookie }) {
         return false
       }
 
-      const { passwordHash, passwordSalt } = await createPasswordRecord(newPassword)
+      const passwordHash = await createPasswordHash(newPassword)
       await connection.execute(
         `UPDATE admin_credentials
          SET password_hash = ?, password_salt = ?, updated_at = ?
          WHERE id = ?`,
-        [passwordHash, passwordSalt, Date.now(), CREDENTIAL_ID],
+        [passwordHash, '', Date.now(), CREDENTIAL_ID],
       )
       await connection.execute(
         'DELETE FROM admin_sessions WHERE token_hash <> ?',
