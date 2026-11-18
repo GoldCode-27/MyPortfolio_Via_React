@@ -1,5 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
 import { apiRequest } from './api.js'
+import eBidImage from './assets/E-bid.jpg'
+import hrmImage from './assets/HRM.jpg'
+import hostelImage from './assets/Hostel.jpg'
+import k12Image from './assets/K-12.jpg'
 import Chat from './components/Chat.jsx'
 import ThemeToggle from './components/ThemeToggle.jsx'
 
@@ -27,25 +31,25 @@ const portfolioItems = [
   {
     title: 'K-12 School Management Platform',
     description: 'A management platform built for K-12 school workflows.',
-    icon: 'fas fa-school',
+    image: k12Image,
     type: 'Education',
   },
   {
     title: 'Debre Tabor City Administration HRM System',
     description: 'A human resource management system for city administration.',
-    icon: 'fas fa-landmark',
+    image: hrmImage,
     type: 'Public administration',
   },
   {
     title: 'E-Bid System',
     description: 'An electronic bidding system for managing bid workflows.',
-    icon: 'fas fa-file-invoice-dollar',
+    image: eBidImage,
     type: 'Procurement',
   },
   {
     title: 'ማረፊያ (Hostel Management System)',
     description: 'A hostel management system for accommodation operations.',
-    icon: 'fas fa-bed',
+    image: hostelImage,
     type: 'Hospitality',
   },
 ]
@@ -58,8 +62,11 @@ function App() {
   const [contactStatus, setContactStatus] = useState('')
   const [contactError, setContactError] = useState('')
   const [contactSending, setContactSending] = useState(false)
+  const [activeProject, setActiveProject] = useState(null)
 
   const skillsWrapRef = useRef(null)
+  const projectDialogCloseRef = useRef(null)
+  const projectCardTriggerRef = useRef(null)
 
   useEffect(() => {
     const onScroll = () => {
@@ -106,6 +113,42 @@ function App() {
     observer.observe(el)
     return () => observer.disconnect()
   }, [])
+
+  useEffect(() => {
+    if (!activeProject) return
+    const trigger = projectCardTriggerRef.current
+    const previousBodyOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    projectDialogCloseRef.current?.focus()
+
+    const handleDialogKeys = (event) => {
+      if (event.key === 'Escape') {
+        setActiveProject(null)
+        return
+      }
+      if (event.key !== 'Tab') return
+
+      const controls = document.querySelectorAll(
+        '.project-detail-dialog button:not(:disabled), .project-detail-dialog a[href]',
+      )
+      const first = controls[0]
+      const last = controls[controls.length - 1]
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault()
+        last?.focus()
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault()
+        first?.focus()
+      }
+    }
+
+    window.addEventListener('keydown', handleDialogKeys)
+    return () => {
+      window.removeEventListener('keydown', handleDialogKeys)
+      document.body.style.overflow = previousBodyOverflow
+      trigger?.focus()
+    }
+  }, [activeProject])
 
   const onNavClick = (id) => {
     setIsMenuOpen(false)
@@ -515,9 +558,24 @@ function App() {
           <div className="row">
             {portfolioItems.map((item) => (
               <div key={item.title} className="portfolio-item">
-                <div className="portfolio-item-inner project-card">
-                  <div className="project-visual" aria-hidden="true">
-                    <i className={item.icon}></i>
+                <article className="portfolio-item-inner project-card">
+                  <button
+                    className="project-card-expand"
+                    type="button"
+                    aria-label={`View details for ${item.title}`}
+                    aria-haspopup="dialog"
+                    onClick={(event) => {
+                      projectCardTriggerRef.current = event.currentTarget
+                      setActiveProject(item)
+                    }}
+                  />
+                  <div className="project-visual">
+                    <img
+                      src={item.image}
+                      alt={`${item.title} interface preview`}
+                      loading="lazy"
+                      decoding="async"
+                    />
                   </div>
                   <div className="project-card-content">
                     <span className="project-type">{item.type}</span>
@@ -535,7 +593,7 @@ function App() {
                       <i className="fab fa-github" aria-hidden="true"></i> Browse source on GitHub
                     </a>
                   </div>
-                </div>
+                </article>
               </div>
             ))}
           </div>
@@ -841,6 +899,58 @@ function App() {
           &copy;All Right reserved:Workineh&apos;s portfolio.
         </p>
       </footer>
+
+      {activeProject && (
+        <div
+          className="project-detail-backdrop"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) setActiveProject(null)
+          }}
+        >
+          <section
+            className="project-detail-dialog"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="project-detail-title"
+            aria-describedby="project-detail-description"
+          >
+            <header className="project-detail-header">
+              <div>
+                <span className="project-type">{activeProject.type}</span>
+                <h2 id="project-detail-title">{activeProject.title}</h2>
+              </div>
+              <button
+                ref={projectDialogCloseRef}
+                className="project-detail-close"
+                type="button"
+                aria-label="Close project details"
+                onClick={() => setActiveProject(null)}
+              >
+                <i className="fas fa-times" aria-hidden="true"></i>
+              </button>
+            </header>
+            <img
+              className="project-detail-image"
+              src={activeProject.image}
+              alt={`${activeProject.title} full interface preview`}
+            />
+            <div className="project-detail-content">
+              <p id="project-detail-description">{activeProject.description}</p>
+              <span className="project-status">
+                <i className="fas fa-desktop" aria-hidden="true"></i> Runs locally
+              </span>
+              <a
+                className="project-source-link"
+                href={githubRepositoriesUrl}
+                target="_blank"
+                rel="noreferrer"
+              >
+                <i className="fab fa-github" aria-hidden="true"></i> Browse source on GitHub
+              </a>
+            </div>
+          </section>
+        </div>
+      )}
 
       <Chat />
     </>
