@@ -283,9 +283,9 @@ function App() {
                 I&apos;m a <span style={{ fontSize: 100 }}></span>
               </h1>
               <p style={{ paddingTop: 0, marginTop: 0 }}>
-                I&apos;m a software developer who builds practical systems for schools, public
-                administration, procurement, and hostel management. I develop and run my projects
-                locally, with their source code available on GitHub.
+                I&apos;m a full-stack developer skilled in React, Node.js (Express), MySQL, MongoDB,
+                and Git/GitHub workflows. I use these skills to build practical systems for
+                education, public administration, procurement, and hostel management.
               </p>
 
               <button type="button" id="start_button">
@@ -463,7 +463,7 @@ function App() {
                 <h3>Web development</h3>
                 <p className="service-description" style={{ fontWeight: 500, fontSize: 18 }}>
                   I develop fast.functional,and interactive websites using clean,well-structured
-                  code withtechnologies like javaScript and frontend library.
+                  code withtechnologies like Node(Express) and frontend library and different databases.
                 </p>
               </div>
             </div>
@@ -476,7 +476,7 @@ function App() {
                 <h3>Android development</h3>
                 <p className="service-description" style={{ fontWeight: 500, fontSize: 18 }}>
                   I built intuitive and user friendly android applications with smooth functionality
-                  and appealing design using java or kotlin.
+                  and appealing design using java or React Native.
                 </p>
               </div>
             </div>
